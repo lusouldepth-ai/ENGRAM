@@ -1,8 +1,13 @@
 'use server';
 
-import { google } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+
+const deepseek = createOpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
 
 const cardSchema = z.object({
   front: z.string().describe("The target vocabulary word or phrase."),
@@ -16,7 +21,7 @@ const cardSchema = z.object({
 export const generateCards = async (input: string) => {
   try {
     const { object } = await generateObject({
-      model: google('gemini-1.5-pro-latest'), // Using 1.5 Pro as 3.0 is mentioned in PRD but mapping to available SDK model.
+      model: deepseek('deepseek-chat'),
       schema: z.object({
         cards: z.array(cardSchema),
       }),
