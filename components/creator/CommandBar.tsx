@@ -24,15 +24,20 @@ export function CommandBar() {
     setStep('generating');
     startGenerating(async () => {
       const result = await generateCards(input);
+      
+      // Debug log to see what we got back
+      console.log("Frontend received:", result);
+
       if (result.success && result.data) {
         setCandidates(result.data);
         // Default select all
-        setSelectedIndices(new Set(result.data.map((_, i) => i)));
+        setSelectedIndices(new Set(result.data.map((_: any, i: number) => i)));
         setStep('review');
       } else {
         // Handle error
         setStep('idle');
-        console.error(result.error);
+        console.error("Error from backend:", result.error);
+        alert("Failed to generate cards: " + (result.error || "Unknown error"));
       }
     });
   };

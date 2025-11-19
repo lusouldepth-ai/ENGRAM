@@ -14,21 +14,29 @@ export type CardData = {
 export async function saveCards(cards: CardData[], deckTitle: string = "Generated Deck") {
   const supabase = createClient();
 
-  // 1. Get User
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  
-  if (userError || !user) {
-     // For development/demo without auth, we might want to handle this differently.
-     // But strict implementation requires user.
-     // We will return error.
-     return { success: false, error: "User not authenticated" };
-  }
-
-  // 2. Create Profile if not exists (idempotent check usually needed, or triggers)
-  // Assuming profile exists or triggers create it. 
-  // But for safety in this demo, let's just assume user exists.
-
   try {
+    // 1. Get User with strict check
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Auth Error:", authError);
+      return { success: false, error: "Unauthorized: Please log in to save cards." };
+    }
+
+    console.log(`🚀 Saving ${cards.length} cards for user ${user.id} to deck "${deckTitle}"`);
+
+    // 2. Ensure Profile Exists (Safety Check)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) {
+      console.log("⚠️ Profile missing, creating one...");
+      await supabase.from('profiles').insert({ id: user.id, email: user.email });
+    }
+
     // 3. Create Deck
     const { data: deck, error: deckError } = await supabase
       .from('decks')
@@ -40,37 +48,42 @@ export async function saveCards(cards: CardData[], deckTitle: string = "Generate
       .select()
       .single();
 
-    if (deckError) throw new Error(deckError.message);
+    if (deckError) {
+      console.error("Deck Creation Error:", deckError);
+      throw new Error(`Failed to create deck: ${deckError.message}`);
+    }
 
-    // 4. Prepare Cards
+    // 4. Insert Cards
     const cardsToInsert = cards.map(card => ({
       deck_id: deck.id,
       user_id: user.id,
       front: card.front,
-      phonetic: card.phonetic,
-      pos: card.pos,
-      translation: card.translation,
-      definition: card.definition,
-      example: card.example,
-      state: 0, // New
-      due: new Date().toISOString(), // Now
+      phonetic: card.phonetic || "",
+      pos: card.pos || "",
+      translation: card.translation || "",
+      definition: card.definition || "",
+      example: card.example || "",
+      state: 0, // 0: New
+      due: new Date().toISOString(), // Immediately due
       reps: 0,
       stability: 0,
       difficulty: 0
     }));
 
-    // 5. Insert Cards
     const { error: cardsError } = await supabase
       .from('cards')
       .insert(cardsToInsert);
 
-    if (cardsError) throw new Error(cardsError.message);
+    if (cardsError) {
+      console.error("Card Insertion Error:", cardsError);
+      throw new Error(`Failed to save cards: ${cardsError.message}`);
+    }
 
+    console.log("✅ Cards saved successfully");
     return { success: true, deckId: deck.id };
 
   } catch (error: any) {
-    console.error("Error saving cards:", error);
-    return { success: false, error: error.message };
+    console.error("❌ Save Action Failed:", error);
+    return { success: false, error: error.message || "Unknown error occurred" };
   }
 }
-

@@ -1,45 +1,56 @@
 'use server';
 
-import { createOpenAI } from '@ai-sdk/openai';
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import OpenAI from 'openai';
 
-const deepseek = createOpenAI({
-  baseURL: 'https://api.deepseek.com',
-  apiKey: process.env.DEEPSEEK_API_KEY,
+// 初始化官方 SDK
+// DeepSeek 完全兼容 OpenAI 协议
+const client = new OpenAI({
+  baseURL: 'https://api.deepseek.com', // 官方 SDK 会自动补全 /v1/chat/completions
+  apiKey: process.env.DEEPSEEK_API_KEY, // 确保 .env.local 里叫这个名字
 });
 
-const cardSchema = z.object({
-  front: z.string().describe("The target vocabulary word or phrase."),
-  phonetic: z.string().describe("The IPA phonetic transcription."),
-  pos: z.string().describe("Part of speech (e.g., n., v., adj.)."),
-  translation: z.string().describe("Translation in the user's native language (assume Chinese/User's Locale)."),
-  definition: z.string().describe("Concise definition in the target language (English)."),
-  example: z.string().describe("A usage example sentence."),
-});
+export async function generateCards(input: string) {
+  console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...");
 
-export const generateCards = async (input: string) => {
   try {
-    const { object } = await generateObject({
-      model: deepseek('deepseek-chat'),
-      schema: z.object({
-        cards: z.array(cardSchema),
-      }),
-      system: `You are the engine behind ENGRAM, a high-end language learning tool.
-Goal: Extract vocabulary and format it into a strict JSON array.
+    if (!process.env.DEEPSEEK_API_KEY) {
+      throw new Error("DEEPSEEK_API_KEY is missing in .env.local");
+    }
 
-Rules:
-1. Selection: If input is text, extract the top 15 most valuable/challenging words (CEFR B2+). If input is a list, process the list.
-2. Simplicity: Definitions must be concise. No fluff. "Less but Better".
-3. Language: Front=Target Language (English). Back Translation=Chinese (Simplified). Back Definition=Target Language (English).
-
-JSON Output Structure is defined by the schema.`,
-      prompt: input,
+    const response = await client.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert linguist.
+          Extract vocabulary from the user input.
+          Output STRICT JSON only. No markdown. No code blocks.
+          Format: [{"front": "Word", "translation": "中文释义", "definition": "English Definition", "phonetic": "/ipa/", "pos": "n.", "example": "Example sentence."}]`
+        },
+        {
+          role: 'user',
+          content: input
+        }
+      ],
+      temperature: 1.0,
     });
 
-    return { success: true, data: object.cards };
-  } catch (error) {
-    console.error("Error generating cards:", error);
-    return { success: false, error: "Failed to generate cards." };
+    const content = response.choices[0].message.content || "[]";
+    console.log("📩 [Action] Raw AI Response:", content);
+
+    // 清洗数据：去掉可能存在的 Markdown 符号
+    const cleanedContent = content.replace(/```json|```/g, '').trim();
+    
+    // 解析 JSON
+    const cards = JSON.parse(cleanedContent);
+    console.log(`✅ [Action] Successfully parsed ${cards.length} cards.`);
+
+    // Return object with success property to match component expectation
+    return { success: true, data: cards };
+
+  } catch (error: any) {
+    console.error("❌ [Action] Error:", error);
+    // 返回错误对象防止前端崩溃
+    return { success: false, error: error.message || "Failed to generate cards" };
   }
-};
+}
