@@ -6,6 +6,8 @@ import { saveCards } from "./save-cards";
 
 export async function updateProfile(data: {
     learning_goal?: string;
+    target_score?: string;
+    exam_date?: string;
     english_level?: string;
     accent_preference?: string;
 }) {
@@ -16,9 +18,12 @@ export async function updateProfile(data: {
         return { success: false, error: "Unauthorized" };
     }
 
+    // Calculate initial daily goal (Logic: if exam date is near, increase goal? For now default to 20)
+    const daily_goal = 20;
+
     const { error } = await supabase
         .from('profiles')
-        .update(data)
+        .update({ ...data, daily_goal })
         .eq('id', user.id);
 
     if (error) {
@@ -51,6 +56,7 @@ export async function completeOnboarding(goal: string, level: string) {
     }
 
     // 2. Generate Starter Cards
+    // "Action: 系统自动调用 DeepSeek 生成 5 张 贴合用户背景的卡片。"
     const prompt = `Generate 5 essential vocabulary words for a ${level} learner focusing on ${goal}.`;
     
     const genResult = await generateCards(prompt, { goal, level });
@@ -73,4 +79,3 @@ export async function completeOnboarding(goal: string, level: string) {
     return { success: false, error: error.message };
   }
 }
-

@@ -10,6 +10,7 @@ const client = new OpenAI({
 type GenerateContext = {
     level?: string;
     goal?: string;
+    ui_language?: string;
 }
 
 export async function generateCards(input: string, context?: GenerateContext) {
@@ -22,10 +23,18 @@ export async function generateCards(input: string, context?: GenerateContext) {
 
     const level = context?.level || "Intermediate";
     const goal = context?.goal || "General English";
+    const ui_language = context?.ui_language || "en";
+
+    // 核心差异化: 根据 UI Language 调整 Definition 的语言倾向
+    // PRD Requirement: "CN 模式下，Definition 偏向提供中文释义；EN 模式下，提供英英释义"
+    // Note: Translation field is usually for L1 (User's native language), but here we follow PRD.
+    // If ui_language is 'cn', Translation is Chinese.
+    // If ui_language is 'en', Translation could be ...? PRD says "Translation (Language: ${ui_language})"
+    // Let's stick to the prompt structure in PRD V3.
 
     const systemPrompt = `
 Role: Expert Linguist.
-Task: Extract vocabulary and output STRICT JSON Array.
+Task: Generate flashcard data in STRICT JSON.
 Context: User Level: ${level}, Goal: ${goal}.
 
 JSON Structure:
@@ -33,12 +42,11 @@ JSON Structure:
   "front": "Word",
   "phonetic": "/ipa/",
   "pos": "n./v.",
-  "translation": "Chinese Meaning",
+  "translation": "Definition (Language: ${ui_language === 'cn' ? 'Chinese' : 'English'})",
   "definition": "English Definition",
-  "example": "Example sentence",
-  "short_usage": "Short phrase (3-5 words)",
-  "shadow_sentence": "Long, rhythmic sentence (10+ words) for speaking practice",
-  "root_analysis": "Brief etymology (optional)"
+  "short_usage": "Short phrase (3-6 words) for quick reading",
+  "shadow_sentence": "Long, rhythmic sentence (10-15 words) for shadowing practice",
+  "root_analysis": "Etymology breakdown"
 }
 
 Output ONLY valid JSON array. No markdown.

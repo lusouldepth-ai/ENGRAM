@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,22 +30,55 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setMessage(null);
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
+        
         if (error) throw error;
-        alert('Check your email for the confirmation link!');
+
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+            setError("This email is already registered. Please sign in.");
+            return;
+        }
+
+        // Check if session exists (Auto-confirm disabled case)
+        if (data.session) {
+             router.push('/onboarding');
+             return;
+        }
+
+        // Email confirmation required case
+        setMessage("Success! Check your email to verify your account.");
+        setLoading(false);
+
       } else {
+        // Sign In Logic
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        router.push('/dashboard');
+        
+        // Check onboarding status before redirecting
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', (await supabase.auth.getUser()).data.user?.id)
+          .single();
+
+        if (profile && !profile.onboarding_completed) {
+          router.push('/onboarding');
+        } else {
+          router.push('/dashboard');
+        }
         router.refresh();
       }
     } catch (err: any) {
@@ -65,6 +99,20 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+          {message ? (
+            <div className="text-center space-y-4 animate-fade-in">
+                <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">
+                    {message}
+                </div>
+                <Button 
+                    onClick={() => setMode('signin')}
+                    variant="outline"
+                    className="w-full"
+                >
+                    Back to Sign In
+                </Button>
+            </div>
+          ) : (
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Email</label>
@@ -105,17 +153,23 @@ export default function LoginPage() {
               {mode === 'signin' ? 'Sign In' : 'Sign Up'}
             </Button>
           </form>
+          )}
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-              className="text-sm text-gray-500 hover:text-braun-accent transition-colors"
-            >
-              {mode === 'signin' 
-                ? "Don't have an account? Sign up" 
-                : "Already have an account? Sign in"}
-            </button>
-          </div>
+          {!message && (
+            <div className="mt-6 text-center">
+                <button
+                onClick={() => {
+                    setMode(mode === 'signin' ? 'signup' : 'signin');
+                    setError(null);
+                }}
+                className="text-sm text-gray-500 hover:text-braun-accent transition-colors"
+                >
+                {mode === 'signin' 
+                    ? "Don't have an account? Sign up" 
+                    : "Already have an account? Sign in"}
+                </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

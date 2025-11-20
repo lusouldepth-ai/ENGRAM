@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { updateProfile, completeOnboarding } from "@/app/actions/onboarding-actions";
 import { Loader2, ArrowRight } from "lucide-react";
@@ -15,18 +16,31 @@ export default function OnboardingPage() {
   const [formData, setFormData] = useState({
     identity: "",
     goal: "",
+    target_score: "",
+    exam_date: "",
     level: "",
     accent: ""
   });
 
   // Step 1 Handlers
   const handleIdentitySelect = (val: string) => setFormData(prev => ({ ...prev, identity: val }));
-  const handleGoalSelect = (val: string) => setFormData(prev => ({ ...prev, goal: val }));
-  
+  const handleGoalSelect = (val: string) => setFormData(prev => ({ ...prev, goal: val, target_score: "", exam_date: "" })); // Reset conditional fields
+
   const submitStep1 = async () => {
     if (!formData.identity || !formData.goal) return;
+    
+    // Validate Exam fields if needed
+    if ((formData.goal === "IELTS" || formData.goal === "TOEFL") && (!formData.target_score || !formData.exam_date)) {
+        alert("Please fill in your target score and exam date.");
+        return;
+    }
+
     // Save partial data (optional, but good for tracking drop-off)
-    await updateProfile({ learning_goal: formData.goal });
+    await updateProfile({ 
+        learning_goal: formData.goal,
+        target_score: formData.target_score,
+        exam_date: formData.exam_date
+    });
     setStep('level_accent');
   };
 
@@ -48,7 +62,8 @@ export default function OnboardingPage() {
     const result = await completeOnboarding(formData.goal, formData.level);
     
     if (result.success) {
-        router.push('/review');
+        // Trigger Confetti here if implemented
+        router.push('/dashboard');
     } else {
         alert("Something went wrong. Please try again.");
         setStep('level_accent');
@@ -96,6 +111,34 @@ export default function OnboardingPage() {
                         </SelectionButton>
                     ))}
                 </div>
+                
+                {/* Conditional Inputs for Exams */}
+                {(formData.goal === "IELTS" || formData.goal === "TOEFL") && (
+                     <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="grid grid-cols-2 gap-4 pt-2"
+                     >
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-500">Target Score</label>
+                            <Input 
+                                placeholder={formData.goal === "IELTS" ? "e.g. 7.0" : "e.g. 100"}
+                                value={formData.target_score}
+                                onChange={(e) => setFormData(prev => ({ ...prev, target_score: e.target.value }))}
+                                className="bg-white border-gray-200"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-500">Exam Date</label>
+                            <Input 
+                                type="date"
+                                value={formData.exam_date}
+                                onChange={(e) => setFormData(prev => ({ ...prev, exam_date: e.target.value }))}
+                                className="bg-white border-gray-200"
+                            />
+                        </div>
+                     </motion.div>
+                )}
             </div>
 
             <div className="flex justify-end pt-8">
@@ -200,4 +243,3 @@ function SelectionButton({ children, selected, onClick }: { children: React.Reac
         </button>
     )
 }
-
