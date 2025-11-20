@@ -9,6 +9,9 @@ export type CardData = {
   translation?: string;
   definition?: string;
   example?: string;
+  short_usage?: string;
+  shadow_sentence?: string;
+  root_analysis?: string;
 };
 
 export async function saveCards(cards: CardData[], deckTitle: string = "Generated Deck") {
@@ -63,6 +66,9 @@ export async function saveCards(cards: CardData[], deckTitle: string = "Generate
       translation: card.translation || "",
       definition: card.definition || "",
       example: card.example || "",
+      short_usage: card.short_usage || "",
+      shadow_sentence: card.shadow_sentence || "",
+      root_analysis: card.root_analysis || "",
       state: 0, // 0: New
       due: new Date().toISOString(), // Immediately due
       reps: 0,

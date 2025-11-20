@@ -2,30 +2,54 @@
 
 import OpenAI from 'openai';
 
-// 初始化官方 SDK
-// DeepSeek 完全兼容 OpenAI 协议
 const client = new OpenAI({
-  baseURL: 'https://api.deepseek.com', // 官方 SDK 会自动补全 /v1/chat/completions
-  apiKey: process.env.DEEPSEEK_API_KEY, // 确保 .env.local 里叫这个名字
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
-export async function generateCards(input: string) {
-  console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...");
+type GenerateContext = {
+    level?: string;
+    goal?: string;
+}
+
+export async function generateCards(input: string, context?: GenerateContext) {
+  console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...", context);
 
   try {
     if (!process.env.DEEPSEEK_API_KEY) {
       throw new Error("DEEPSEEK_API_KEY is missing in .env.local");
     }
 
+    const level = context?.level || "Intermediate";
+    const goal = context?.goal || "General English";
+
+    const systemPrompt = `
+Role: Expert Linguist.
+Task: Extract vocabulary and output STRICT JSON Array.
+Context: User Level: ${level}, Goal: ${goal}.
+
+JSON Structure:
+{
+  "front": "Word",
+  "phonetic": "/ipa/",
+  "pos": "n./v.",
+  "translation": "Chinese Meaning",
+  "definition": "English Definition",
+  "example": "Example sentence",
+  "short_usage": "Short phrase (3-5 words)",
+  "shadow_sentence": "Long, rhythmic sentence (10+ words) for speaking practice",
+  "root_analysis": "Brief etymology (optional)"
+}
+
+Output ONLY valid JSON array. No markdown.
+`;
+
     const response = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
         {
           role: 'system',
-          content: `You are an expert linguist.
-          Extract vocabulary from the user input.
-          Output STRICT JSON only. No markdown. No code blocks.
-          Format: [{"front": "Word", "translation": "中文释义", "definition": "English Definition", "phonetic": "/ipa/", "pos": "n.", "example": "Example sentence."}]`
+          content: systemPrompt
         },
         {
           role: 'user',
@@ -45,12 +69,10 @@ export async function generateCards(input: string) {
     const cards = JSON.parse(cleanedContent);
     console.log(`✅ [Action] Successfully parsed ${cards.length} cards.`);
 
-    // Return object with success property to match component expectation
     return { success: true, data: cards };
 
   } catch (error: any) {
     console.error("❌ [Action] Error:", error);
-    // 返回错误对象防止前端崩溃
     return { success: false, error: error.message || "Failed to generate cards" };
   }
 }
