@@ -7,16 +7,15 @@ import { Button } from "@/components/ui/button";
 import { getDueCards, reviewCard } from "@/app/actions/review-actions";
 import { Database } from "@/lib/supabase/types";
 import { Loader2, CheckCircle2, ArrowRight } from "lucide-react";
-import { Logo } from "@/components/ui/Logo";
 
 type Card = Database['public']['Tables']['cards']['Row'];
 
 export default function ReviewSection() {
   const [cards, setCards] = useState<Card[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, startTransition] = useTransition();
+  const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(null);
 
   useEffect(() => {
     const loadCards = async () => {
@@ -27,10 +26,18 @@ export default function ReviewSection() {
     loadCards();
   }, []);
 
-  const currentCard = cards[currentIndex];
+  const currentCard = cards[0];
+  useEffect(() => {
+    setAnswerCorrect(null);
+    setIsFlipped(false);
+  }, [currentCard?.id]);
 
   const handleReview = (grade: 'forgot' | 'hard' | 'good') => {
     if (!currentCard || isSubmitting) return;
+    if (!isFlipped) return;
+    if (grade === 'good' && (answerCorrect === false || answerCorrect === null)) {
+      return;
+    }
 
     startTransition(async () => {
       // Optimistic UI
@@ -38,9 +45,8 @@ export default function ReviewSection() {
       
       if (result.success) {
          setIsFlipped(false);
-         // Remove current card from local state to advance
          setCards(prev => prev.filter(c => c.id !== currentCard.id));
-         setCurrentIndex(0);
+         setAnswerCorrect(null);
       }
     });
   };
@@ -84,6 +90,7 @@ export default function ReviewSection() {
            card={currentCard} 
            isFlipped={isFlipped} 
            onFlip={setIsFlipped}
+           onResultChange={(result) => setAnswerCorrect(result.correct)}
         />
       </div>
 
@@ -100,7 +107,7 @@ export default function ReviewSection() {
               <Button 
                 className="flex-1 bg-orange-100 hover:bg-orange-200 text-orange-700 border-orange-200 h-12 rounded-xl font-medium transition-colors"
                 onClick={() => handleReview('forgot')}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isFlipped}
               >
                 Forgot
                 <span className="block text-[10px] opacity-60 font-normal ml-2">1m</span>
@@ -109,7 +116,7 @@ export default function ReviewSection() {
               <Button 
                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200 h-12 rounded-xl font-medium transition-colors"
                 onClick={() => handleReview('hard')}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isFlipped}
               >
                 Hard
                 <span className="block text-[10px] opacity-60 font-normal ml-2">2d</span>
@@ -118,7 +125,7 @@ export default function ReviewSection() {
               <Button 
                 className="flex-1 bg-green-100 hover:bg-green-200 text-green-700 border-green-200 h-12 rounded-xl font-medium transition-colors"
                 onClick={() => handleReview('good')}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isFlipped || answerCorrect !== true}
               >
                 Good
                 <span className="block text-[10px] opacity-60 font-normal ml-2">4d</span>
@@ -132,7 +139,8 @@ export default function ReviewSection() {
               exit={{ opacity: 0 }}
               className="text-gray-400 text-sm flex items-center gap-2"
             >
-               {/* <span>Type answer to flip</span> */}
+               <span>Type the word & press Enter</span>
+               <ArrowRight className="w-4 h-4" />
             </motion.div>
           )}
         </AnimatePresence>

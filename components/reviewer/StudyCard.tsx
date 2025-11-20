@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { Database } from '@/lib/supabase/types';
 import { Input } from '@/components/ui/input';
@@ -8,51 +8,184 @@ import { Button } from '@/components/ui/button';
 import { Lock, RefreshCw, Mic, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
 
-type Card = Database['public']['Tables']['cards']['Row'];
+type Card = Database['public']['Tables']['cards']['Row'] & {
+  audio_url?: string | null;
+};
 
 interface StudyCardProps {
   card: Card;
   isFlipped: boolean;
   onFlip: (flipped: boolean) => void;
+  onResultChange?: (result: { correct: boolean; input: string }) => void;
 }
 
-export function StudyCard({ card, isFlipped, onFlip }: StudyCardProps) {
+export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCardProps) {
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [shadowSentence, setShadowSentence] = useState(card.shadow_sentence || '');
+  const [isPro, setIsPro] = useState(false);
+  const [isLoadingTier, setIsLoadingTier] = useState(true);
+  const [isShuffling, startShuffle] = useTransition();
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const rawTarget = (card.front || '').trim();
+  const isAllCaps = rawTarget && rawTarget === rawTarget.toUpperCase();
+  const displayTarget = isAllCaps ? rawTarget : rawTarget.toLowerCase();
 
   // Phase 1: Auto-play (Mock)
   useEffect(() => {
     if (!isFlipped) {
-      // TODO: Play audio logic here
-      // const audio = new Audio(card.phonetic_audio_url);
-      // audio.play();
       inputRef.current?.focus();
+      handlePlay();
     }
-  }, [card, isFlipped]);
+    return () => {
+      stopAudio();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id, isFlipped]);
+
+  useEffect(() => {
+    setUserInput('');
+    setIsCorrect(null);
+    setShadowSentence(card.shadow_sentence || '');
+    stopAudio();
+  }, [card]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function fetchTier() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted || !user) {
+        setIsPro(false);
+        setIsLoadingTier(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('profiles')
+        .select('tier')
+        .eq('id', user.id)
+        .single();
+      if (mounted) {
+        setIsPro((data?.tier || '').toLowerCase() === 'pro');
+        setIsLoadingTier(false);
+      }
+    }
+    fetchTier();
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
 
   const handleSubmit = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isFlipped) {
       const cleanInput = userInput.trim().toLowerCase();
-      const cleanTarget = card.front.trim().toLowerCase();
-      setIsCorrect(cleanInput === cleanTarget);
+      const cleanTarget = rawTarget.toLowerCase();
+      const result = cleanInput === cleanTarget;
+      setIsCorrect(result);
+      onResultChange?.({ correct: result, input: userInput });
       onFlip(true);
     }
   };
 
+  const handleShuffle = () => {
+    if (!isPro) {
+      router.push('/pricing');
+      return;
+    }
+    startShuffle(async () => {
+      const result = await regenerateShadowSentence(card.id);
+      if (result.success && result.sentence) {
+        setShadowSentence(result.sentence);
+      } else {
+        alert(result.error || 'Unable to refresh sentence');
+      }
+    });
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && utteranceRef.current) {
+      window.speechSynthesis.cancel();
+      utteranceRef.current = null;
+    }
+    setIsSpeaking(false);
+  };
+
+  const handlePlay = () => {
+    if (isFlipped) return;
+    stopAudio();
+
+    if (card.audio_url) {
+      const audio = new Audio(card.audio_url);
+      audioRef.current = audio;
+      audio
+        .play()
+        .then(() => setIsSpeaking(true))
+        .catch((err) => console.warn('Audio playback failed', err));
+      audio.addEventListener('ended', () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      });
+      return;
+    }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(card.front);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.95;
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        utteranceRef.current = null;
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        utteranceRef.current = null;
+      };
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      utteranceRef.current = utterance;
+      setIsSpeaking(true);
+    }
+  };
+
   return (
-    <div className="relative w-full max-w-md h-[400px] perspective-1000">
+    <div
+      className="relative w-full max-w-md h-[400px]"
+      style={{ perspective: '1600px' }}
+    >
       <motion.div
-        className="w-full h-full relative preserve-3d transition-all duration-500"
+        className="w-full h-full relative transition-all duration-500"
         animate={{ rotateY: isFlipped ? 180 : 0 }}
+        style={{ transformStyle: 'preserve-3d' }}
       >
         {/* FRONT: Dictation Mode */}
-        <div className="absolute w-full h-full backface-hidden bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col items-center justify-center p-8">
+        <div
+          className="absolute w-full h-full bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col items-center justify-center p-8"
+          style={{ backfaceVisibility: 'hidden' }}
+        >
           <div className="mb-8">
-            <Button variant="ghost" size="icon" className="rounded-full h-12 w-12 bg-gray-50 hover:bg-gray-100">
-              <Volume2 className="w-6 h-6 text-gray-600" />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Play pronunciation"
+              onClick={handlePlay}
+              className={cn(
+                'rounded-full h-12 w-12 bg-gray-50 hover:bg-gray-100 transition-colors',
+                isSpeaking && 'bg-[#EA580C]/10 text-[#EA580C]'
+              )}
+            >
+              <Volume2 className={cn('w-6 h-6', isSpeaking ? 'text-[#EA580C]' : 'text-gray-600')} />
             </Button>
           </div>
           
@@ -70,20 +203,22 @@ export function StudyCard({ card, isFlipped, onFlip }: StudyCardProps) {
 
         {/* BACK: Feedback Mode */}
         <div 
-          className="absolute w-full h-full backface-hidden bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col p-8 rotate-y-180 overflow-y-auto no-scrollbar"
-          style={{ transform: 'rotateY(180deg)' }}
+          className="absolute w-full h-full bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col p-8 overflow-y-auto no-scrollbar"
+          style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}
         >
           {/* Result Header */}
           <div className="text-center mb-6">
             <h2 className="text-3xl font-bold text-braun-text mb-1">
-              <DiffResult input={userInput} target={card.front} />
+              <DiffResult input={userInput} target={displayTarget} rawTarget={rawTarget} />
             </h2>
             <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
               <span className="font-mono bg-gray-50 px-2 py-0.5 rounded">{card.phonetic || "/.../"}</span>
               <span className="italic">{card.pos || "n."}</span>
             </div>
             {!isCorrect && (
-               <p className="text-sm text-orange-600 mt-2 font-medium">Correct: {card.front}</p>
+               <p className="text-base text-orange-600 mt-3 font-semibold tracking-tight">
+                 Correct: {displayTarget}
+               </p>
             )}
           </div>
 
@@ -99,23 +234,43 @@ export function StudyCard({ card, isFlipped, onFlip }: StudyCardProps) {
               </p>
             </div>
 
+            {card.example && (
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sentence</h4>
+                <p className="text-gray-700 leading-relaxed">{card.example}</p>
+              </div>
+            )}
+
             {/* Shadow Sentence (Pro Feature) */}
             <div className="space-y-2">
                <div className="flex items-center justify-between">
                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Shadowing</h4>
-                 {/* Assuming we passed user.is_pro via props or context. For now mocking logic: */}
-                 {/* Replace with actual check later */}
-                 {/* <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">PRO</span> */}
+                 {isPro ? (
+                   <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">PRO</span>
+                 ) : (
+                   <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Pro Only</span>
+                 )}
                </div>
-               
-               <div className="relative group cursor-pointer" onClick={() => router.push('/pricing')}>
-                  {/* Blurred Content */}
-                  <p className={cn("text-lg font-serif leading-relaxed transition-all", true ? "blur-sm select-none opacity-50" : "")}>
-                    {card.shadow_sentence || "This is a long, rhythmic sentence designed for shadowing practice."}
+
+               <div
+                 className={cn(
+                   'relative transition-all',
+                   !isPro && 'group cursor-pointer'
+                 )}
+                 onClick={() => {
+                   if (!isPro) router.push('/pricing');
+                 }}
+               >
+                  <p
+                    className={cn(
+                      'text-lg font-serif leading-relaxed transition-all',
+                      !isPro && 'blur-sm select-none opacity-50'
+                    )}
+                  >
+                    {shadowSentence || 'This is a long, rhythmic sentence designed for shadowing practice.'}
                   </p>
                   
-                  {/* Lock Overlay */}
-                  {true && (
+                  {!isPro && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border flex items-center gap-2">
                             <Lock className="w-3 h-3 text-braun-accent" />
@@ -124,6 +279,32 @@ export function StudyCard({ card, isFlipped, onFlip }: StudyCardProps) {
                     </div>
                   )}
                </div>
+
+               {isPro && (
+                 <div className="flex gap-3">
+                   <Button variant="outline" size="sm" className="rounded-full px-4 py-2 text-sm font-medium">
+                     <Mic className="w-4 h-4 mr-1" />
+                     Record
+                   </Button>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={handleShuffle}
+                     disabled={isShuffling}
+                     className="rounded-full px-4 py-2 text-sm font-medium"
+                   >
+                     {isShuffling ? (
+                       'Shuffling...'
+                     ) : (
+                       <>
+                         <RefreshCw className="w-4 h-4 mr-1" />
+                         Shuffle
+                       </>
+                     )}
+                   </Button>
+                 </div>
+               )}
+
             </div>
 
           </div>
@@ -134,16 +315,45 @@ export function StudyCard({ card, isFlipped, onFlip }: StudyCardProps) {
 }
 
 // Simple Diff Component
-function DiffResult({ input, target }: { input: string, target: string }) {
-    // Very basic diff for visual effect
-    // If correct, return normal text
-    // If incorrect, highlight errors (simplified: just show target with error color if mismatch)
-    
-    if (input.trim().toLowerCase() === target.trim().toLowerCase()) {
-        return <span className="text-green-600">{target}</span>;
-    }
+function DiffResult({
+  input,
+  target,
+  rawTarget,
+}: {
+  input: string;
+  target: string;
+  rawTarget: string;
+}) {
+  const normalizedTarget = target || '';
+  const normalizedInput = (input || '').toLowerCase();
+  const isCorrect = normalizedInput.trim() === normalizedTarget.trim();
 
-    // For MVP: Just return the target in red/orange if wrong
-    return <span className="text-braun-accent line-through decoration-2 decoration-braun-accent/30">{input || "..."}</span>;
+  if (isCorrect) {
+    return <span className="text-green-600">{normalizedTarget}</span>;
+  }
+
+  return (
+    <span className="tracking-wide text-[#1A1A1A] font-semibold">
+      {normalizedTarget.split('').map((char, idx) => {
+        const match = (normalizedInput[idx] || '').toLowerCase() === char.toLowerCase();
+        return (
+          <span
+            key={`${rawTarget}-${idx}`}
+            className={cn(
+              'relative px-0.5 transition-colors',
+              match
+                ? 'text-[#1A1A1A]'
+                : 'text-[#EA580C]'
+            )}
+          >
+            {char}
+            {!match && (
+              <span className="absolute left-1/2 -translate-x-1/2 bottom-0.5 h-[2px] w-5/6 bg-[#EA580C]/40 rounded-full" />
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
