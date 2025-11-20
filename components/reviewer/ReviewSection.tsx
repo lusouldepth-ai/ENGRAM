@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Flashcard } from "@/components/reviewer/Flashcard";
+import { StudyCard } from "@/components/reviewer/StudyCard";
 import { Button } from "@/components/ui/button";
 import { getDueCards, reviewCard } from "@/app/actions/review-actions";
 import { Database } from "@/lib/supabase/types";
@@ -39,10 +39,7 @@ export default function ReviewSection() {
       if (result.success) {
          setIsFlipped(false);
          // Remove current card from local state to advance
-         // or just increment index. Removing is safer for "All Caught Up" logic
          setCards(prev => prev.filter(c => c.id !== currentCard.id));
-         // Index stays 0 because we removed the head, or adjusted logic
-         // If we remove, index 0 is always next
          setCurrentIndex(0);
       }
     });
@@ -83,7 +80,7 @@ export default function ReviewSection() {
       </div>
 
       <div className="w-full max-w-md flex flex-col items-center justify-center mb-8">
-        <Flashcard 
+        <StudyCard 
            card={currentCard} 
            isFlipped={isFlipped} 
            onFlip={setIsFlipped}
@@ -135,8 +132,7 @@ export default function ReviewSection() {
               exit={{ opacity: 0 }}
               className="text-gray-400 text-sm flex items-center gap-2"
             >
-               <span>Tap card to reveal</span>
-               <ArrowRight className="w-4 h-4" />
+               {/* <span>Type answer to flip</span> */}
             </motion.div>
           )}
         </AnimatePresence>
@@ -144,7 +140,6 @@ export default function ReviewSection() {
       
       {/* Keyboard shortcuts */}
       <KeyboardListener 
-         onSpace={() => !isFlipped && setIsFlipped(true)}
          onOne={() => isFlipped && handleReview('forgot')}
          onTwo={() => isFlipped && handleReview('hard')}
          onThree={() => isFlipped && handleReview('good')}
@@ -153,20 +148,16 @@ export default function ReviewSection() {
   );
 }
 
-function KeyboardListener({ onSpace, onOne, onTwo, onThree }: any) {
+function KeyboardListener({ onOne, onTwo, onThree }: any) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        e.preventDefault(); 
-        onSpace();
-      }
       if (e.key === '1') onOne();
       if (e.key === '2') onTwo();
       if (e.key === '3') onThree();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSpace, onOne, onTwo, onThree]);
+  }, [onOne, onTwo, onThree]);
   return null;
 }
 

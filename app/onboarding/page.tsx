@@ -25,7 +25,7 @@ export default function OnboardingPage() {
   // Step 1 Handlers
   const handleIdentitySelect = (val: string) => setFormData(prev => ({ ...prev, identity: val }));
   const handleGoalSelect = (val: string) => setFormData(prev => ({ ...prev, goal: val, target_score: "", exam_date: "" })); // Reset conditional fields
-
+  
   const submitStep1 = async () => {
     if (!formData.identity || !formData.goal) return;
     

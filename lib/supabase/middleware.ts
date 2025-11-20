@@ -81,7 +81,7 @@ export async function updateSession(request: NextRequest) {
       if (profile && !profile.onboarding_completed) {
           return NextResponse.redirect(new URL('/onboarding', request.url))
       } else {
-          return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/dashboard', request.url))
       }
   }
 

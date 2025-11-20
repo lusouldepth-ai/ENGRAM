@@ -77,7 +77,7 @@ export default function LoginPage() {
         if (profile && !profile.onboarding_completed) {
           router.push('/onboarding');
         } else {
-          router.push('/dashboard');
+        router.push('/dashboard');
         }
         router.refresh();
       }
@@ -156,19 +156,19 @@ export default function LoginPage() {
           )}
 
           {!message && (
-            <div className="mt-6 text-center">
-                <button
+          <div className="mt-6 text-center">
+            <button
                 onClick={() => {
                     setMode(mode === 'signin' ? 'signup' : 'signin');
                     setError(null);
                 }}
-                className="text-sm text-gray-500 hover:text-braun-accent transition-colors"
-                >
-                {mode === 'signin' 
-                    ? "Don't have an account? Sign up" 
-                    : "Already have an account? Sign in"}
-                </button>
-            </div>
+              className="text-sm text-gray-500 hover:text-braun-accent transition-colors"
+            >
+              {mode === 'signin' 
+                ? "Don't have an account? Sign up" 
+                : "Already have an account? Sign in"}
+            </button>
+          </div>
           )}
         </div>
       </div>
