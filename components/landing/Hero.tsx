@@ -4,21 +4,21 @@ import { ArrowRight, Command, Sparkles, Check } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="w-full flex flex-col items-center justify-center px-4 py-20 md:py-32 overflow-hidden">
+    <section className="w-full flex flex-col items-center justify-center px-4 py-16 md:py-24 overflow-hidden">
       <div className="text-center max-w-5xl mx-auto animate-fade-up relative z-10">
-        <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-braun-text mb-6 max-w-3xl">
-          Carve it in <br className="hidden md:block" /> your mind.
+        <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-braun-dark mb-6">
+          Turn Text Into <br />
+          <span className="text-braun-accent">Permanent Memory</span>
         </h1>
 
-        <p className="text-lg md:text-xl text-gray-500 max-w-xl mx-auto mb-10 leading-relaxed">
-          The friction-free learning tool. <br />
-          Turn any text into <span className="text-braun-text font-medium">permanent memory</span> with one command.
+        <p className="text-xl text-braun-gray max-w-lg mx-auto mb-10 leading-relaxed">
+          No friction. No noise. Just you, AI, and the flow state.
         </p>
 
         <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
           <Link href="/dashboard" className="w-full md:w-auto">
             <Button className="w-full md:w-auto bg-braun-accent text-white px-8 py-6 rounded-full font-medium text-lg hover:bg-orange-700 transition-all shadow-lg hover:shadow-xl">
-              Start Learning — It's Free
+              Start Your Journey
             </Button>
           </Link>
           <Link href="#method" className="w-full md:w-auto">
