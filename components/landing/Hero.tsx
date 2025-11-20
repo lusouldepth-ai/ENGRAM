@@ -4,14 +4,9 @@ import { ArrowRight, Command, Sparkles, Check } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="flex-grow flex flex-col items-center px-4 pt-20 md:pt-28 pb-20">
-      <div className="text-center max-w-3xl mx-auto animate-fade-up">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-gray-200 mb-8">
-          <div className="w-2 h-2 rounded-full bg-braun-accent"></div>
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Version 1.0 Now Available</span>
-        </div>
-
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tighter text-braun-text mb-6 leading-[1.1]">
+    <section className="w-full flex flex-col items-center justify-center px-4 py-20 md:py-32 overflow-hidden">
+      <div className="text-center max-w-5xl mx-auto animate-fade-up relative z-10">
+        <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-braun-text mb-6 max-w-3xl">
           Carve it in <br className="hidden md:block" /> your mind.
         </h1>
 
