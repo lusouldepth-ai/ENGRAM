@@ -17,6 +17,15 @@ export interface Database {
           daily_generations: number
           last_reset_date: string | null
           created_at: string
+          learning_goal: string | null
+          target_score: string | null
+          exam_date: string | null
+          english_level: string | null
+          accent_preference: string | null
+          daily_goal: number | null
+          ui_language: string | null
+          plan_status: Json | null
+          onboarding_completed: boolean
         }
         Insert: {
           id: string
@@ -25,6 +34,15 @@ export interface Database {
           daily_generations?: number
           last_reset_date?: string | null
           created_at?: string
+          learning_goal?: string | null
+          target_score?: string | null
+          exam_date?: string | null
+          english_level?: string | null
+          accent_preference?: string | null
+          daily_goal?: number | null
+          ui_language?: string | null
+          plan_status?: Json | null
+          onboarding_completed?: boolean
         }
         Update: {
           id?: string
@@ -33,6 +51,15 @@ export interface Database {
           daily_generations?: number
           last_reset_date?: string | null
           created_at?: string
+          learning_goal?: string | null
+          target_score?: string | null
+          exam_date?: string | null
+          english_level?: string | null
+          accent_preference?: string | null
+          daily_goal?: number | null
+          ui_language?: string | null
+          plan_status?: Json | null
+          onboarding_completed?: boolean
         }
         Relationships: [
           {
@@ -51,6 +78,7 @@ export interface Database {
           description: string | null
           is_preset: boolean
           created_at: string
+          view_mode: string | null
         }
         Insert: {
           id?: string
@@ -59,6 +87,7 @@ export interface Database {
           description?: string | null
           is_preset?: boolean
           created_at?: string
+          view_mode?: string | null
         }
         Update: {
           id?: string
@@ -67,6 +96,7 @@ export interface Database {
           description?: string | null
           is_preset?: boolean
           created_at?: string
+          view_mode?: string | null
         }
         Relationships: [
           {
@@ -88,6 +118,10 @@ export interface Database {
           translation: string | null
           definition: string | null
           example: string | null
+          short_usage: string | null
+          shadow_sentence: string | null
+          root_analysis: string | null
+          is_mastered: boolean
           state: number
           due: string
           stability: number
@@ -105,6 +139,10 @@ export interface Database {
           translation?: string | null
           definition?: string | null
           example?: string | null
+          short_usage?: string | null
+          shadow_sentence?: string | null
+          root_analysis?: string | null
+          is_mastered?: boolean
           state?: number
           due?: string
           stability?: number
@@ -122,6 +160,10 @@ export interface Database {
           translation?: string | null
           definition?: string | null
           example?: string | null
+          short_usage?: string | null
+          shadow_sentence?: string | null
+          root_analysis?: string | null
+          is_mastered?: boolean
           state?: number
           due?: string
           stability?: number
@@ -196,4 +238,3 @@ export interface Database {
     }
   }
 }
-
