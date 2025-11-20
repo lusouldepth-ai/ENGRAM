@@ -3,6 +3,7 @@ import ReviewSection from "@/components/reviewer/ReviewSection";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -17,7 +18,9 @@ export default async function DashboardPage() {
       {/* Top Section: Creator */}
       <section className="w-full border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
         <div className="max-w-3xl mx-auto py-4 px-4 flex items-center gap-4">
-          <Logo className="w-8 h-8 shrink-0" />
+          <Link href="/" className="shrink-0">
+            <Logo className="w-8 h-8" />
+          </Link>
           <div className="flex-1">
              <CommandBar />
           </div>
