@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 export function CommandBar() {
   const [input, setInput] = useState('');
@@ -18,6 +19,7 @@ export function CommandBar() {
   const [isGenerating, startGenerating] = useTransition();
   const [isSaving, startSaving] = useTransition();
   const [step, setStep] = useState<'idle' | 'generating' | 'review' | 'saved'>('idle');
+  const router = useRouter();
 
   const handleGenerate = () => {
     if (!input.trim()) return;
@@ -34,8 +36,13 @@ export function CommandBar() {
         setSelectedIndices(new Set(result.data.map((_: any, i: number) => i)));
         setStep('review');
       } else {
-        // Handle error
         setStep('idle');
+        
+        if (result.error === "QUOTA_EXCEEDED") {
+            router.push('/pricing');
+            return;
+        }
+
         console.error("Error from backend:", result.error);
         alert("Failed to generate cards: " + (result.error || "Unknown error"));
       }

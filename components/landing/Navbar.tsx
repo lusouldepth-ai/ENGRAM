@@ -18,8 +18,8 @@ export function Navbar({ user }: NavbarProps) {
       </Link>
 
       <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
-        <Link href="#method" className="hover:text-braun-text transition-colors">Method</Link>
-        <Link href="#pricing" className="hover:text-braun-text transition-colors">Pricing</Link>
+        <Link href="/#method" className="hover:text-braun-text transition-colors">Method</Link>
+        <Link href="/pricing" className="hover:text-braun-text transition-colors">Pricing</Link>
         <LanguageToggle />
         
         {user ? (

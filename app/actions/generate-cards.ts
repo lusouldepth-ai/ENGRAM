@@ -1,6 +1,8 @@
 'use server';
 
 import OpenAI from 'openai';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
 const client = new OpenAI({
   baseURL: 'https://api.deepseek.com',
@@ -17,20 +19,50 @@ export async function generateCards(input: string, context?: GenerateContext) {
   console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...", context);
 
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // CHECK QUOTA
+    const { data: hasQuota, error: rpcError } = await supabase
+        .rpc('check_daily_quota', { user_uuid: user.id });
+    
+    if (rpcError) {
+        console.error("Quota check error:", rpcError);
+        // Fallback: Allow if error? Or Block? Block to be safe.
+        return { success: false, error: "Failed to check quota." };
+    }
+
+    if (hasQuota === false) {
+        // Quota exceeded
+        return { success: false, error: "QUOTA_EXCEEDED" };
+    }
+
     if (!process.env.DEEPSEEK_API_KEY) {
       throw new Error("DEEPSEEK_API_KEY is missing in .env.local");
     }
 
-    const level = context?.level || "Intermediate";
-    const goal = context?.goal || "General English";
-    const ui_language = context?.ui_language || "en";
+    // Fetch user context if not provided
+    let level = context?.level || "Intermediate";
+    let goal = context?.goal || "General English";
+    let ui_language = context?.ui_language || "en";
 
-    // 核心差异化: 根据 UI Language 调整 Definition 的语言倾向
-    // PRD Requirement: "CN 模式下，Definition 偏向提供中文释义；EN 模式下，提供英英释义"
-    // Note: Translation field is usually for L1 (User's native language), but here we follow PRD.
-    // If ui_language is 'cn', Translation is Chinese.
-    // If ui_language is 'en', Translation could be ...? PRD says "Translation (Language: ${ui_language})"
-    // Let's stick to the prompt structure in PRD V3.
+    if (!context) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('english_level, learning_goal, ui_language')
+            .eq('id', user.id)
+            .single();
+        
+        if (profile) {
+            level = profile.english_level || level;
+            goal = profile.learning_goal || goal;
+            ui_language = profile.ui_language || ui_language;
+        }
+    }
 
     const systemPrompt = `
 Role: Expert Linguist.
