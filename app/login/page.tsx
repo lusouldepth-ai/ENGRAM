@@ -1,20 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const router = useRouter();
+
+  useEffect(() => {
+    if (searchParams?.get('mode') === 'signup') {
+      setMode('signup');
+    }
+  }, [searchParams]);
+
   const supabase = createClient();
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -113,4 +121,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

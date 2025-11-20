@@ -25,7 +25,7 @@ export function Navbar({ user }: NavbarProps) {
         ) : (
           <>
             <Link href="/login" className="hover:text-braun-text transition-colors">Login</Link>
-            <Link href="/dashboard">
+            <Link href="/login?mode=signup">
               <Button className="bg-braun-text text-white px-6 rounded-full hover:bg-black transition-colors">
                 Get Started
               </Button>
