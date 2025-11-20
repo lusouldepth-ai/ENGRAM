@@ -8,9 +8,17 @@ import { getDueCards, reviewCard } from "@/app/actions/review-actions";
 import { Database } from "@/lib/supabase/types";
 import { Loader2, CheckCircle2, ArrowRight } from "lucide-react";
 
-type Card = Database['public']['Tables']['cards']['Row'];
+type Card = Database["public"]["Tables"]["cards"]["Row"];
+type ProfileMeta = Pick<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "tier" | "accent_preference" | "shadow_rate"
+>;
 
-export default function ReviewSection() {
+interface ReviewSectionProps {
+  profile?: ProfileMeta;
+}
+
+export default function ReviewSection({ profile }: ReviewSectionProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,11 +94,14 @@ export default function ReviewSection() {
       </div>
 
       <div className="w-full max-w-md flex flex-col items-center justify-center mb-8">
-        <StudyCard 
-           card={currentCard} 
-           isFlipped={isFlipped} 
-           onFlip={setIsFlipped}
-           onResultChange={(result) => setAnswerCorrect(result.correct)}
+        <StudyCard
+          card={currentCard}
+          isFlipped={isFlipped}
+          onFlip={setIsFlipped}
+          onResultChange={(result) => setAnswerCorrect(result.correct)}
+          userTier={profile?.tier}
+          accentPreference={profile?.accent_preference}
+          shadowRate={profile?.shadow_rate}
         />
       </div>
 

@@ -56,6 +56,7 @@ export default function PricingPage() {
         .single();
       setProfile(data);
       alert("Welcome to Pro! 🚀");
+      router.push("/dashboard");
       router.refresh();
     }
     setUpgrading(false);
@@ -67,15 +68,21 @@ export default function PricingPage() {
     <div className="min-h-screen bg-braun-bg text-[#1A1A1A] font-sans selection:bg-[#EA580C] selection:text-white flex flex-col">
         <Navbar user={user} />
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 md:p-12">
-        <div className="text-center mb-12 max-w-2xl pt-8">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Simple Pricing.</h1>
-          <p className="text-lg text-gray-500">Invest in your mind. Cancel anytime.</p>
+      <main className="flex-1 flex flex-col items-center p-6 md:p-12">
+        <div className="w-full max-w-5xl text-center mb-12 pt-12 space-y-4">
+          <p className="text-xs tracking-[0.4em] uppercase text-gray-400">Choose your cadence</p>
+          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1A1A]">
+            Mastery Plans, Zero Friction
+          </h1>
+          <p className="text-base md:text-lg text-gray-500 max-w-3xl mx-auto">
+            Stay on the free track or unlock Pro to remove ceilings, access shadowing, and keep
+            ENGRAM running as fast as you think.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full">
+        <div className="w-full max-w-5xl grid gap-6 md:grid-cols-2 items-stretch">
           {/* Starter Plan */}
-          <div className="relative p-8 rounded-2xl bg-white border border-stone-200 shadow-sm flex flex-col">
+          <div className="relative p-8 rounded-2xl bg-white border border-stone-200 shadow-sm flex flex-col h-full">
             <div className="mb-6">
               <h3 className="text-xl font-bold mb-2">Starter</h3>
               <div className="text-3xl font-bold">$0 <span className="text-sm font-normal text-gray-500">/ month</span></div>
@@ -98,8 +105,8 @@ export default function PricingPage() {
           </div>
 
           {/* Pro Plan */}
-          <div className="relative p-8 rounded-2xl bg-white border-2 border-[#EA580C] shadow-xl flex flex-col transform md:-translate-y-4">
-            <div className="absolute top-0 right-0 bg-[#EA580C] text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-lg">
+          <div className="relative p-8 rounded-2xl bg-white border-2 border-[#EA580C] shadow-xl flex flex-col md:-translate-y-4 h-full">
+            <div className="absolute top-0 right-0 bg-[#EA580C] text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-lg tracking-wide">
               RECOMMENDED
             </div>
             

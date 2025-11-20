@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { Database } from '@/lib/supabase/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Lock, RefreshCw, Mic, Volume2 } from 'lucide-react';
+import { Lock, RefreshCw, Mic, Volume2, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
 
 type Card = Database['public']['Tables']['cards']['Row'] & {
@@ -20,28 +19,50 @@ interface StudyCardProps {
   isFlipped: boolean;
   onFlip: (flipped: boolean) => void;
   onResultChange?: (result: { correct: boolean; input: string }) => void;
+  userTier?: string | null;
+  accentPreference?: string | null;
+  shadowRate?: number | null;
 }
 
-export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCardProps) {
+export function StudyCard({
+  card,
+  isFlipped,
+  onFlip,
+  onResultChange,
+  userTier,
+  accentPreference,
+  shadowRate: shadowRateProp,
+}: StudyCardProps) {
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [shadowSentence, setShadowSentence] = useState(card.shadow_sentence || '');
-  const [isPro, setIsPro] = useState(false);
-  const [isLoadingTier, setIsLoadingTier] = useState(true);
+  const accent: 'us' | 'uk' = accentPreference?.toLowerCase() === 'uk' ? 'uk' : 'us';
+  const [resolvedShadowRate, setResolvedShadowRate] = useState(() => {
+    const val = shadowRateProp ?? 0.95;
+    return Math.min(1.2, Math.max(0.8, val));
+  });
+  const isPro = (userTier || '').toLowerCase() === 'pro';
   const [isShuffling, startShuffle] = useTransition();
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isShadowSpeaking, setIsShadowSpeaking] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const shadowUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const [voicesReady, setVoicesReady] = useState(false);
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const rawTarget = (card.front || '').trim();
   const isAllCaps = rawTarget && rawTarget === rawTarget.toUpperCase();
   const displayTarget = isAllCaps ? rawTarget : rawTarget.toLowerCase();
 
   // Phase 1: Auto-play (Mock)
   useEffect(() => {
-    if (!isFlipped) {
+    if (!isFlipped && voicesReady) {
       inputRef.current?.focus();
       handlePlay();
     }
@@ -49,7 +70,7 @@ export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCard
       stopAudio();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card.id, isFlipped]);
+  }, [card.id, isFlipped, voicesReady]);
 
   useEffect(() => {
     setUserInput('');
@@ -59,29 +80,33 @@ export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCard
   }, [card]);
 
   useEffect(() => {
-    let mounted = true;
-    async function fetchTier() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!mounted || !user) {
-        setIsPro(false);
-        setIsLoadingTier(false);
-        return;
-      }
-      const { data } = await supabase
-        .from('profiles')
-        .select('tier')
-        .eq('id', user.id)
-        .single();
-      if (mounted) {
-        setIsPro((data?.tier || '').toLowerCase() === 'pro');
-        setIsLoadingTier(false);
-      }
+    if (shadowRateProp !== undefined && shadowRateProp !== null) {
+      setResolvedShadowRate(Math.min(1.2, Math.max(0.8, shadowRateProp)));
     }
-    fetchTier();
-    return () => {
-      mounted = false;
+  }, [shadowRateProp]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const assignVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return;
+      const preferred = voices.find((voice) =>
+        accent === 'uk'
+          ? voice.lang.toLowerCase().includes('en-gb')
+          : voice.lang.toLowerCase().includes('en-us')
+      );
+      const fallback = voices.find((voice) => voice.lang.toLowerCase().startsWith('en'));
+      voiceRef.current = preferred || fallback || null;
+      setVoicesReady(true);
     };
-  }, [supabase]);
+
+    assignVoice();
+    window.speechSynthesis.addEventListener('voiceschanged', assignVoice);
+    return () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', assignVoice);
+    };
+  }, [accent]);
 
   const handleSubmit = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isFlipped) {
@@ -119,11 +144,22 @@ export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCard
       window.speechSynthesis.cancel();
       utteranceRef.current = null;
     }
+    if (typeof window !== 'undefined' && shadowUtteranceRef.current) {
+      window.speechSynthesis.cancel();
+      shadowUtteranceRef.current = null;
+      setIsShadowSpeaking(false);
+    }
     setIsSpeaking(false);
   };
 
+  const buildFallbackAudioUrl = () => {
+    const word = encodeURIComponent(rawTarget || card.front || '');
+    if (!word) return null;
+    const type = accent === 'uk' ? '1' : '0';
+    return `https://dict.youdao.com/dictvoice?type=${type}&audio=${word}`;
+  };
+
   const handlePlay = () => {
-    if (isFlipped) return;
     stopAudio();
 
     if (card.audio_url) {
@@ -140,22 +176,119 @@ export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCard
       return;
     }
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(card.front);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.95;
-      utterance.onend = () => {
+    const fallbackUrl = buildFallbackAudioUrl();
+    if (fallbackUrl) {
+      const fallbackAudio = new Audio(fallbackUrl);
+      audioRef.current = fallbackAudio;
+      fallbackAudio
+        .play()
+        .then(() => setIsSpeaking(true))
+        .catch((err) => {
+          console.warn('Fallback audio failed', err);
+          speakViaWebAPI();
+        });
+      fallbackAudio.addEventListener('ended', () => {
         setIsSpeaking(false);
-        utteranceRef.current = null;
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        utteranceRef.current = null;
-      };
+        audioRef.current = null;
+      });
+      return;
+    }
+
+    speakViaWebAPI();
+  };
+
+  const speakViaWebAPI = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(rawTarget || card.front);
+    utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+    utterance.rate = resolvedShadowRate;
+    if (voiceRef.current) {
+      utterance.voice = voiceRef.current;
+    }
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      utteranceRef.current = null;
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      utteranceRef.current = null;
+    };
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    utteranceRef.current = utterance;
+    setIsSpeaking(true);
+  };
+
+  const handleShadowPlay = () => {
+    if (!shadowSentence) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (!isPro) {
+      router.push('/pricing');
+      return;
+    }
+    if (isShadowSpeaking) {
       window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-      utteranceRef.current = utterance;
-      setIsSpeaking(true);
+      setIsShadowSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(shadowSentence);
+    utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+    utterance.rate = resolvedShadowRate;
+    if (voiceRef.current) {
+      utterance.voice = voiceRef.current;
+    }
+    utterance.onend = () => {
+      setIsShadowSpeaking(false);
+      shadowUtteranceRef.current = null;
+    };
+    utterance.onerror = () => {
+      setIsShadowSpeaking(false);
+      shadowUtteranceRef.current = null;
+    };
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    shadowUtteranceRef.current = utterance;
+    setIsShadowSpeaking(true);
+  };
+
+  const handleRecordToggle = async () => {
+    if (!isPro) {
+      router.push('/pricing');
+      return;
+    }
+
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        setRecordedUrl(url);
+        setIsRecording(false);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Recording failed', err);
+      alert('Microphone access denied.');
     }
   };
 
@@ -281,10 +414,30 @@ export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCard
                </div>
 
                {isPro && (
-                 <div className="flex gap-3">
-                   <Button variant="outline" size="sm" className="rounded-full px-4 py-2 text-sm font-medium">
+                 <div className="flex flex-wrap gap-3 items-center">
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={handleShadowPlay}
+                     className={cn(
+                       'rounded-full px-4 py-2 text-sm font-medium',
+                       isShadowSpeaking && 'border-[#EA580C] text-[#EA580C]'
+                     )}
+                   >
+                     <Play className="w-4 h-4 mr-1" />
+                     {isShadowSpeaking ? 'Playing...' : 'Play'}
+                   </Button>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={handleRecordToggle}
+                     className={cn(
+                       'rounded-full px-4 py-2 text-sm font-medium',
+                       isRecording && 'border-red-400 text-red-500'
+                     )}
+                   >
                      <Mic className="w-4 h-4 mr-1" />
-                     Record
+                     {isRecording ? 'Recording...' : 'Record'}
                    </Button>
                    <Button
                      variant="outline"
@@ -302,6 +455,12 @@ export function StudyCard({ card, isFlipped, onFlip, onResultChange }: StudyCard
                        </>
                      )}
                    </Button>
+                 </div>
+               )}
+
+               {recordedUrl && (
+                 <div className="pt-2 text-sm text-gray-500">
+                   <audio controls src={recordedUrl} className="w-full" />
                  </div>
                )}
 

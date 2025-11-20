@@ -4,13 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/landing/Navbar";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    redirect("/login");
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tier, accent_preference, shadow_rate")
+    .eq("id", user.id)
+    .single();
 
   return (
     <main className="min-h-screen bg-[#F4F4F0] text-[#1A1A1A] font-sans selection:bg-[#EA580C] selection:text-white flex flex-col">
@@ -45,7 +55,7 @@ export default async function DashboardPage() {
              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#EA580C]/20 to-transparent opacity-50"></div>
              
              <div className="relative z-10 w-full">
-                <ReviewSection />
+                <ReviewSection profile={profile || undefined} />
              </div>
           </div>
         </section>
