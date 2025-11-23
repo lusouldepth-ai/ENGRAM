@@ -10,9 +10,9 @@ const client = new OpenAI({
 });
 
 type GenerateContext = {
-    level?: string;
-    goal?: string;
-    ui_language?: string;
+  level?: string;
+  goal?: string;
+  ui_language?: string;
 }
 
 export async function generateCards(input: string, context?: GenerateContext) {
@@ -23,22 +23,22 @@ export async function generateCards(input: string, context?: GenerateContext) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Unauthorized" };
     }
 
     // CHECK QUOTA
     const { data: hasQuota, error: rpcError } = await supabase
-        .rpc('check_daily_quota', { user_uuid: user.id });
-    
+      .rpc('check_daily_quota', { user_uuid: user.id });
+
     if (rpcError) {
-        console.error("Quota check error:", rpcError);
-        // Fallback: Allow if error? Or Block? Block to be safe.
-        return { success: false, error: "Failed to check quota." };
+      console.error("Quota check error:", rpcError);
+      // Fallback: Allow if error? Or Block? Block to be safe.
+      return { success: false, error: "Failed to check quota." };
     }
 
     if (hasQuota === false) {
-        // Quota exceeded
-        return { success: false, error: "QUOTA_EXCEEDED" };
+      // Quota exceeded
+      return { success: false, error: "QUOTA_EXCEEDED" };
     }
 
     if (!process.env.DEEPSEEK_API_KEY) {
@@ -48,20 +48,20 @@ export async function generateCards(input: string, context?: GenerateContext) {
     // Fetch user context if not provided
     let level = context?.level || "Intermediate";
     let goal = context?.goal || "General English";
-    let ui_language = context?.ui_language || "en";
+    let ui_language = context?.ui_language || "cn";
 
     if (!context) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('english_level, learning_goal, ui_language')
-            .eq('id', user.id)
-            .single();
-        
-        if (profile) {
-            level = profile.english_level || level;
-            goal = profile.learning_goal || goal;
-            ui_language = profile.ui_language || ui_language;
-        }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('english_level, learning_goal, ui_language')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        level = profile.english_level || level;
+        goal = profile.learning_goal || goal;
+        ui_language = profile.ui_language || ui_language;
+      }
     }
 
     const systemPrompt = `
@@ -116,7 +116,7 @@ Rules:
 
     // 清洗数据：去掉可能存在的 Markdown 符号
     const cleanedContent = content.replace(/```json|```/g, '').trim();
-    
+
     // 解析 JSON
     const cards = JSON.parse(cleanedContent);
     console.log(`✅ [Action] Successfully parsed ${cards.length} cards.`);

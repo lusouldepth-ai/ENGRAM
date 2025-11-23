@@ -38,7 +38,7 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
   // Forgot -> 1 min later
   // Hard -> 2 days later
   // Good -> 4 days later
-  
+
   let intervalMinutes = 0;
   let newStatus = 1; // Learning/Review
 
@@ -91,10 +91,10 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
     });
 
   if (logError) {
-     console.error("Error logging review:", logError);
+    console.error("Error logging review:", logError);
   }
 
-  revalidatePath('/review');
+  revalidatePath('/dashboard');
   return { success: true };
 }
 

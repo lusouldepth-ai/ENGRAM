@@ -43,7 +43,8 @@ export async function regenerateShadowSentence(cardId: string) {
 Word: ${card.front}
 Goal context: ${goal}
 
-Generate ONE rhythmic, natural sentence (12-15 words) that uses the word "${card.front}" in a situation directly related to the goal context. 
+Generate ONE rhythmic, natural sentence (20-25 words) that uses the word "${card.front}" in a situation directly related to the goal context. 
+The sentence should be substantial enough for ~10 seconds of speaking practice.
 The sentence should feel like something a native speaker would say when preparing for ${goal}.
 Return ONLY the sentence.`;
 

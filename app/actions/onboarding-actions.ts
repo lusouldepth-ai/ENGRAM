@@ -5,6 +5,7 @@ import { generateCards } from "./generate-cards";
 import { saveCards } from "./save-cards";
 
 export async function updateProfile(data: {
+    display_name?: string;
     learning_goal?: string;
     target_score?: string;
     exam_date?: string;
@@ -13,7 +14,7 @@ export async function updateProfile(data: {
 }) {
     const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
         return { success: false, error: "Unauthorized" };
     }
@@ -34,11 +35,30 @@ export async function updateProfile(data: {
     return { success: true };
 }
 
-export async function completeOnboarding(goal: string, level: string) {
-  const supabase = createClient();
-  
-  try {
+export async function generateStarterCards(goal: string, level: string) {
+    const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    // "Action: 系统自动调用 DeepSeek 生成 10 张 贴合用户背景的卡片。" (Changed to 10 as per user request)
+    const prompt = `Generate 10 essential vocabulary words for a ${level} learner focusing on ${goal}.`;
+
+    const genResult = await generateCards(prompt, { goal, level });
+
+    if (!genResult.success || !genResult.data) {
+        return { success: false, error: "Failed to generate cards" };
+    }
+
+    return { success: true, cards: genResult.data };
+}
+
+export async function saveStarterCards(cards: any[]) {
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
     if (authError || !user) {
         return { success: false, error: "Unauthorized" };
     }
@@ -55,27 +75,12 @@ export async function completeOnboarding(goal: string, level: string) {
         console.error("Profile Update Error:", profileError);
     }
 
-    // 2. Generate Starter Cards
-    // "Action: 系统自动调用 DeepSeek 生成 5 张 贴合用户背景的卡片。"
-    const prompt = `Generate 5 essential vocabulary words for a ${level} learner focusing on ${goal}.`;
-    
-    const genResult = await generateCards(prompt, { goal, level });
-    
-    if (!genResult.success || !genResult.data) {
-        return { success: false, error: "Failed to generate cards" };
-    }
+    // 2. Save Cards
+    const saveResult = await saveCards(cards, "Starter Deck");
 
-    // 3. Save Cards
-    const saveResult = await saveCards(genResult.data, "Starter Deck");
-    
     if (!saveResult.success) {
         return { success: false, error: saveResult.error };
     }
 
     return { success: true };
-
-  } catch (error: any) {
-    console.error("Onboarding Error:", error);
-    return { success: false, error: error.message };
-  }
 }

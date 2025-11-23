@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { Database } from '@/lib/supabase/types';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Lock, RefreshCw, Mic, Volume2, Play } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
+import { quickAddCard } from '@/app/actions/quick-add';
+import { Plus } from 'lucide-react';
+import { StudyCardFront } from './StudyCardFront';
+import { StudyCardBack } from './StudyCardBack';
 
 type Card = Database['public']['Tables']['cards']['Row'] & {
   audio_url?: string | null;
@@ -22,6 +22,7 @@ interface StudyCardProps {
   userTier?: string | null;
   accentPreference?: string | null;
   shadowRate?: number | null;
+  uiLanguage?: string;
 }
 
 export function StudyCard({
@@ -32,6 +33,7 @@ export function StudyCard({
   userTier,
   accentPreference,
   shadowRate: shadowRateProp,
+  uiLanguage,
 }: StudyCardProps) {
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -41,7 +43,8 @@ export function StudyCard({
     const val = shadowRateProp ?? 0.95;
     return Math.min(1.2, Math.max(0.8, val));
   });
-  const isPro = (userTier || '').toLowerCase() === 'pro';
+  const isPro = (userTier || '').trim().toLowerCase() === 'pro';
+  console.log('StudyCard Debug:', { userTier, isPro, rawTier: userTier });
   const [isShuffling, startShuffle] = useTransition();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isShadowSpeaking, setIsShadowSpeaking] = useState(false);
@@ -55,6 +58,12 @@ export function StudyCard({
   const shadowUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const [voicesReady, setVoicesReady] = useState(false);
+
+  // Quick Add State
+  const [selectionRect, setSelectionRect] = useState<{ top: number; left: number } | null>(null);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [isAddingCard, setIsAddingCard] = useState(false);
+
   const router = useRouter();
   const rawTarget = (card.front || '').trim();
   const isAllCaps = rawTarget && rawTarget === rawTarget.toUpperCase();
@@ -197,16 +206,71 @@ export function StudyCard({
     speakViaWebAPI();
   };
 
-  const speakViaWebAPI = () => {
+  const handleExamplePlay = (text: string) => {
+    stopAudio();
+    if (!text) return;
+
+    // Gate High-Quality TTS behind Pro Plan
+    if (!isPro) {
+      speakViaWebAPI(text);
+      return;
+    }
+
+    const playExternalTTS = (url: string): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => resolve();
+        audio.onerror = () => reject();
+        audio.play().catch(reject);
+      });
+    };
+
+    const tryGoogle = () => {
+      const q = encodeURIComponent(text);
+      // Use Google Translate TTS (unofficial but high quality)
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${q}&tl=${accent === 'uk' ? 'en-GB' : 'en-US'}`;
+      return playExternalTTS(url);
+    };
+
+    const tryYoudao = () => {
+      const q = encodeURIComponent(text);
+      const type = accent === 'uk' ? 1 : 0;
+      const url = `https://dict.youdao.com/dictvoice?audio=${q}&type=${type}`;
+      return playExternalTTS(url);
+    };
+
+    // Chain attempts: Google -> Youdao -> WebSpeech
+    tryGoogle()
+      .catch(() => tryYoudao())
+      .catch(() => {
+        console.warn('External TTS failed, falling back to Web Speech API');
+        speakViaWebAPI(text);
+      });
+  };
+
+  const speakViaWebAPI = (text: string = rawTarget || card.front) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(rawTarget || card.front);
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-    utterance.rate = resolvedShadowRate;
-    if (voiceRef.current) {
-      utterance.voice = voiceRef.current;
+    utterance.rate = 0.9; // Slightly slower for clarity
+
+    // Try to find a high quality voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = accent === 'uk'
+      ? ['Google UK English Female', 'Google UK English Male', 'Daniel', 'Martha']
+      : ['Google US English', 'Samantha', 'Alex', 'Fred'];
+
+    const selectedVoice = voices.find(v => preferredVoices.includes(v.name)) ||
+      voices.find(v => v.lang.includes(accent === 'uk' ? 'en-GB' : 'en-US'));
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
     }
+
     utterance.onend = () => {
       setIsSpeaking(false);
       utteranceRef.current = null;
@@ -215,10 +279,11 @@ export function StudyCard({
       setIsSpeaking(false);
       utteranceRef.current = null;
     };
-    window.speechSynthesis.cancel();
+
     window.speechSynthesis.speak(utterance);
     utteranceRef.current = utterance;
-    setIsSpeaking(true);
+    // Only set isSpeaking if it's the main word (to avoid confusion with example button state if we tracked it separately)
+    // But for now, we don't track example playing state explicitly in UI other than audioRef
   };
 
   const handleShadowPlay = () => {
@@ -292,9 +357,47 @@ export function StudyCard({
     }
   };
 
+  const handleSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      setSelectionRect(null);
+      setSelectedText(null);
+      return;
+    }
+
+    const text = selection.toString().trim();
+    if (text.length > 0 && text.length < 50) { // Limit length
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      // Calculate relative position if needed, or use fixed/absolute
+      // For simplicity, let's use fixed positioning based on viewport
+      setSelectionRect({ top: rect.top - 40, left: rect.left + (rect.width / 2) });
+      setSelectedText(text);
+    } else {
+      setSelectionRect(null);
+      setSelectedText(null);
+    }
+  };
+
+  const handleQuickAdd = async () => {
+    if (!selectedText) return;
+    setIsAddingCard(true);
+    const result = await quickAddCard(selectedText);
+    setIsAddingCard(false);
+    setSelectionRect(null);
+    setSelectedText(null);
+    window.getSelection()?.removeAllRanges();
+
+    if (result.success) {
+      alert(`Added "${selectedText}" to your deck!`);
+    } else {
+      alert(`Failed to add card: ${result.error}`);
+    }
+  };
+
   return (
     <div
-      className="relative w-full max-w-md h-[400px]"
+      className="relative w-full max-w-md h-[500px]" // Increased height for more content
       style={{ perspective: '1600px' }}
     >
       <motion.div
@@ -302,176 +405,64 @@ export function StudyCard({
         animate={{ rotateY: isFlipped ? 180 : 0 }}
         style={{ transformStyle: 'preserve-3d' }}
       >
-        {/* FRONT: Dictation Mode */}
-        <div
-          className="absolute w-full h-full bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col items-center justify-center p-8"
-          style={{ backfaceVisibility: 'hidden' }}
-        >
-          <div className="mb-8">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Play pronunciation"
-              onClick={handlePlay}
-              className={cn(
-                'rounded-full h-12 w-12 bg-gray-50 hover:bg-gray-100 transition-colors',
-                isSpeaking && 'bg-[#EA580C]/10 text-[#EA580C]'
-              )}
-            >
-              <Volume2 className={cn('w-6 h-6', isSpeaking ? 'text-[#EA580C]' : 'text-gray-600')} />
-            </Button>
-          </div>
-          
-          <Input 
-            ref={inputRef}
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            onKeyDown={handleSubmit}
-            placeholder="Type what you hear..."
-            className="text-center text-xl font-medium border-0 border-b-2 border-gray-200 rounded-none focus-visible:ring-0 focus-visible:border-braun-accent px-4 py-2 bg-transparent placeholder:text-gray-300"
-          />
-          
-          <p className="mt-4 text-xs text-gray-400">Press Enter to flip</p>
-        </div>
+        {/* FRONT */}
+        <StudyCardFront
+          ref={inputRef}
+          userInput={userInput}
+          setUserInput={setUserInput}
+          handleSubmit={handleSubmit}
+          handlePlay={handlePlay}
+          isSpeaking={isSpeaking}
+          isCorrect={isCorrect}
+        />
 
-        {/* BACK: Feedback Mode */}
-        <div 
-          className="absolute w-full h-full bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col p-8 overflow-y-auto no-scrollbar"
-          style={{ transform: 'rotateY(180deg)', backfaceVisibility: 'hidden' }}
-        >
-          {/* Result Header */}
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold text-braun-text mb-1">
-              <DiffResult input={userInput} target={displayTarget} rawTarget={rawTarget} />
-            </h2>
-            <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
-              <span className="font-mono bg-gray-50 px-2 py-0.5 rounded">{card.phonetic || "/.../"}</span>
-              <span className="italic">{card.pos || "n."}</span>
-            </div>
-            {!isCorrect && (
-               <p className="text-base text-orange-600 mt-3 font-semibold tracking-tight">
-                 Correct: {displayTarget}
-               </p>
-            )}
-          </div>
-
-          {/* Context Content */}
-          <div className="space-y-6 flex-1">
-            
-            {/* Definition */}
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Meaning</h4>
-              <p className="text-gray-800 leading-relaxed">
-                {card.definition}
-                <span className="block text-gray-400 text-sm mt-1">{card.translation}</span>
-              </p>
-            </div>
-
-            {card.example && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sentence</h4>
-                <p className="text-gray-700 leading-relaxed">{card.example}</p>
-              </div>
-            )}
-
-            {/* Shadow Sentence (Pro Feature) */}
-            <div className="space-y-2">
-               <div className="flex items-center justify-between">
-                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Shadowing</h4>
-                 {isPro ? (
-                   <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">PRO</span>
-                 ) : (
-                   <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Pro Only</span>
-                 )}
-               </div>
-
-               <div
-                 className={cn(
-                   'relative transition-all',
-                   !isPro && 'group cursor-pointer'
-                 )}
-                 onClick={() => {
-                   if (!isPro) router.push('/pricing');
-                 }}
-               >
-                  <p
-                    className={cn(
-                      'text-lg font-serif leading-relaxed transition-all',
-                      !isPro && 'blur-sm select-none opacity-50'
-                    )}
-                  >
-                    {shadowSentence || 'This is a long, rhythmic sentence designed for shadowing practice.'}
-                  </p>
-                  
-                  {!isPro && (
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border flex items-center gap-2">
-                            <Lock className="w-3 h-3 text-braun-accent" />
-                            <span className="text-xs font-medium text-braun-text">Unlock Pro</span>
-                        </div>
-                    </div>
-                  )}
-               </div>
-
-               {isPro && (
-                 <div className="flex flex-wrap gap-3 items-center">
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={handleShadowPlay}
-                     className={cn(
-                       'rounded-full px-4 py-2 text-sm font-medium',
-                       isShadowSpeaking && 'border-[#EA580C] text-[#EA580C]'
-                     )}
-                   >
-                     <Play className="w-4 h-4 mr-1" />
-                     {isShadowSpeaking ? 'Playing...' : 'Play'}
-                   </Button>
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={handleRecordToggle}
-                     className={cn(
-                       'rounded-full px-4 py-2 text-sm font-medium',
-                       isRecording && 'border-red-400 text-red-500'
-                     )}
-                   >
-                     <Mic className="w-4 h-4 mr-1" />
-                     {isRecording ? 'Recording...' : 'Record'}
-                   </Button>
-                   <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={handleShuffle}
-                     disabled={isShuffling}
-                     className="rounded-full px-4 py-2 text-sm font-medium"
-                   >
-                     {isShuffling ? (
-                       'Shuffling...'
-                     ) : (
-                       <>
-                         <RefreshCw className="w-4 h-4 mr-1" />
-                         Shuffle
-                       </>
-                     )}
-                   </Button>
-                 </div>
-               )}
-
-               {recordedUrl && (
-                 <div className="pt-2 text-sm text-gray-500">
-                   <audio controls src={recordedUrl} className="w-full" />
-                 </div>
-               )}
-
-            </div>
-
-          </div>
-        </div>
+        {/* BACK */}
+        <StudyCardBack
+          card={card}
+          userInput={userInput}
+          displayTarget={displayTarget}
+          rawTarget={rawTarget}
+          isCorrect={isCorrect}
+          handleSelection={handleSelection}
+          handleExamplePlay={handleExamplePlay}
+          shadowSentence={shadowSentence}
+          isPro={isPro}
+          resolvedShadowRate={resolvedShadowRate}
+          setResolvedShadowRate={setResolvedShadowRate}
+          handleShuffle={handleShuffle}
+          isShuffling={isShuffling}
+          handleShadowPlay={handleShadowPlay}
+          isShadowSpeaking={isShadowSpeaking}
+          handleRecordToggle={handleRecordToggle}
+          isRecording={isRecording}
+          recordedUrl={recordedUrl}
+        />
       </motion.div>
+
+      {/* Quick Add Popover */}
+      {selectionRect && selectedText && (
+        <div
+          className="fixed z-50 transform -translate-x-1/2 bg-braun-text text-white text-xs px-3 py-1.5 rounded-full shadow-lg cursor-pointer flex items-center gap-1 hover:scale-105 transition-transform"
+          style={{ top: selectionRect.top, left: selectionRect.left }}
+          onMouseDown={(e) => {
+            e.preventDefault(); // Prevent clearing selection
+            handleQuickAdd();
+          }}
+        >
+          {isAddingCard ? (
+            <span>Adding...</span>
+          ) : (
+            <>
+              <Plus className="w-3 h-3" />
+              <span>Add "{selectedText}"</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
 
 // Simple Diff Component
 function DiffResult({
@@ -515,4 +506,3 @@ function DiffResult({
     </span>
   );
 }
-

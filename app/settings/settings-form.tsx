@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { updateProfile } from "@/app/actions/onboarding-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,25 +38,24 @@ export function SettingsForm({ profile }: SettingsFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-            display_name: formData.display_name,
-            learning_goal: formData.learning_goal,
-            english_level: formData.english_level,
-            accent_preference: formData.accent_preference,
-        })
-        .eq("id", profile.id)
 
-      if (error) throw error
-      
+    try {
+      const result = await updateProfile({
+        display_name: formData.display_name,
+        learning_goal: formData.learning_goal,
+        english_level: formData.english_level,
+        accent_preference: formData.accent_preference,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
       router.refresh()
-      // Optional: Show success toast
-    } catch (error) {
+      alert("Profile updated successfully!")
+    } catch (error: any) {
       console.error("Error updating profile:", error)
-      alert("Failed to update profile")
+      alert("Failed to update profile: " + error.message)
     } finally {
       setLoading(false)
     }

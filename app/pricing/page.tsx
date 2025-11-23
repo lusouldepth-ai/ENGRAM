@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/landing/Navbar";
 
+import { useLanguage } from "@/lib/contexts/LanguageContext";
+
 export default function PricingPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -14,6 +16,7 @@ export default function PricingPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     async function getData() {
@@ -37,7 +40,7 @@ export default function PricingPage() {
       router.push('/login');
       return;
     }
-    
+
     setUpgrading(true);
     // Mock Upgrade: Set tier to 'pro' in Supabase
     const { error } = await supabase
@@ -66,17 +69,16 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-braun-bg text-[#1A1A1A] font-sans selection:bg-[#EA580C] selection:text-white flex flex-col">
-        <Navbar user={user} />
+      <Navbar user={user} />
 
       <main className="flex-1 flex flex-col items-center p-6 md:p-12">
         <div className="w-full max-w-5xl text-center mb-12 pt-12 space-y-4">
-          <p className="text-xs tracking-[0.4em] uppercase text-gray-400">Choose your cadence</p>
+          <p className="text-xs tracking-[0.4em] uppercase text-gray-400">{t('pricing.cadence')}</p>
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1A1A]">
-            Mastery Plans, Zero Friction
+            {t('pricing.title')}
           </h1>
           <p className="text-base md:text-lg text-gray-500 max-w-3xl mx-auto">
-            Stay on the free track or unlock Pro to remove ceilings, access shadowing, and keep
-            ENGRAM running as fast as you think.
+            {t('pricing.subtitle')}
           </p>
         </div>
 
@@ -84,9 +86,9 @@ export default function PricingPage() {
           {/* Starter Plan */}
           <div className="relative p-8 rounded-2xl bg-white border border-stone-200 shadow-sm flex flex-col h-full">
             <div className="mb-6">
-              <h3 className="text-xl font-bold mb-2">Starter</h3>
+              <h3 className="text-xl font-bold mb-2">{t('pricing.starter')}</h3>
               <div className="text-3xl font-bold">$0 <span className="text-sm font-normal text-gray-500">/ month</span></div>
-              <p className="text-gray-500 text-sm mt-2">Perfect for casual learners.</p>
+              <p className="text-gray-500 text-sm mt-2">{t('pricing.perfect')}</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
@@ -96,42 +98,42 @@ export default function PricingPage() {
               <FeatureItem>Mobile Access</FeatureItem>
             </ul>
 
-            <Button 
-                className="w-full rounded-full py-6 text-base font-medium bg-stone-100 text-stone-900 hover:bg-stone-200 border border-stone-200"
-                disabled={true}
+            <Button
+              className="w-full rounded-full py-6 text-base font-medium bg-stone-100 text-stone-900 hover:bg-stone-200 border border-stone-200"
+              disabled={true}
             >
-                {isPro ? "Downgrade" : "Current Plan"}
+              {isPro ? t('pricing.downgrade') : t('pricing.current')}
             </Button>
           </div>
 
           {/* Pro Plan */}
-          <div className="relative p-8 rounded-2xl bg-white border-2 border-[#EA580C] shadow-xl flex flex-col md:-translate-y-4 h-full">
+          <div className="relative p-8 rounded-2xl bg-white border-2 border-[#EA580C] shadow-xl flex flex-col h-full">
             <div className="absolute top-0 right-0 bg-[#EA580C] text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-lg tracking-wide">
               RECOMMENDED
             </div>
-            
+
             <div className="mb-6">
               <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
-                Pro <Zap className="w-4 h-4 fill-[#EA580C] text-[#EA580C]" />
+                {t('pricing.pro')} <Zap className="w-4 h-4 fill-[#EA580C] text-[#EA580C]" />
               </h3>
               <div className="text-3xl font-bold">$9.90 <span className="text-sm font-normal text-gray-500">/ month</span></div>
-              <p className="text-gray-500 text-sm mt-2">For serious mastery.</p>
+              <p className="text-gray-500 text-sm mt-2">{t('pricing.mastery')}</p>
             </div>
 
             <ul className="space-y-4 mb-8 flex-1">
               <FeatureItem highlight>Infinite AI Cards</FeatureItem>
               <FeatureItem highlight>Shadow Mode (Speaking)</FeatureItem>
-              <FeatureItem>Smart Shuffle Examples</FeatureItem>
-              <FeatureItem>Advanced Analytics</FeatureItem>
-              <FeatureItem>Priority Support</FeatureItem>
+              <FeatureItem highlight>Smart Shuffle Examples</FeatureItem>
+              <FeatureItem highlight>Advanced Analytics</FeatureItem>
+              <FeatureItem highlight>Priority Support</FeatureItem>
             </ul>
 
-            <Button 
-                onClick={handleUpgrade}
-                disabled={isPro || upgrading}
-                className="w-full rounded-full py-6 text-base font-bold bg-[#EA580C] hover:bg-[#C2410C] text-white shadow-md transition-all hover:shadow-lg"
+            <Button
+              onClick={handleUpgrade}
+              disabled={isPro || upgrading}
+              className="w-full rounded-full py-6 text-base font-bold bg-[#EA580C] hover:bg-[#C2410C] text-white shadow-md transition-all hover:shadow-lg"
             >
-                {upgrading ? "Upgrading..." : (isPro ? "Active Plan" : "Upgrade Now")}
+              {upgrading ? "Upgrading..." : (isPro ? t('pricing.active') : t('pricing.upgrade'))}
             </Button>
           </div>
         </div>

@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: "Carve it in your mind.",
 };
 
+import { LanguageProvider } from "@/lib/contexts/LanguageContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -17,7 +19,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn(inter.variable, "font-sans antialiased")}>{children}</body>
+      <body className={cn(inter.variable, "font-sans antialiased")}>
+        <LanguageProvider>
+          {children}
+        </LanguageProvider>
+      </body>
     </html>
   );
 }
