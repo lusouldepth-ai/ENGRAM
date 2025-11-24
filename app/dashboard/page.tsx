@@ -9,21 +9,22 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = createClient();
-  const [userResult, profileResult] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("profiles")
-      .select("tier, accent_preference, shadow_rate")
-      .eq("id", (await supabase.auth.getUser()).data.user?.id || '')
-      .single()
-  ]);
 
-  const user = userResult.data.user;
-  const profile = profileResult.data;
+
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tier, accent_preference, shadow_rate")
+    .eq("id", user.id)
+    .single();
+
+  console.log("Dashboard Profile Fetch:", profile);
+
 
   return (
     <main className="min-h-screen bg-[#F4F4F0] text-[#1A1A1A] font-sans selection:bg-[#EA580C] selection:text-white flex flex-col">

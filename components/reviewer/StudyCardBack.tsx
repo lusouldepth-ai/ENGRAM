@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Volume2 } from "lucide-react";
+import { Volume2, RotateCcw, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ShadowPlayer } from "./ShadowPlayer";
 import { Database } from "@/lib/supabase/types";
 
 type Card = Database["public"]["Tables"]["cards"]["Row"] & {
@@ -16,18 +15,20 @@ interface StudyCardBackProps {
     isCorrect: boolean | null;
     handleSelection: () => void;
     handleExamplePlay: (text: string) => void;
+    handleWordPlay: () => void;
     // Shadow Props
     shadowSentence: string;
     isPro: boolean;
-    resolvedShadowRate: number;
-    setResolvedShadowRate: (rate: number) => void;
-    handleShuffle: () => void;
-    isShuffling: boolean;
+    playbackSpeed: number;
+    setPlaybackSpeed: (speed: number) => void;
     handleShadowPlay: () => void;
     isShadowSpeaking: boolean;
     handleRecordToggle: () => void;
     isRecording: boolean;
-    recordedUrl: string | null;
+    handleShuffle: () => void;
+    isShuffling: boolean;
+    // Rating Props
+    onRate: (grade: 'forgot' | 'hard' | 'good' | 'easy') => void;
 }
 
 export function StudyCardBack({
@@ -38,86 +39,219 @@ export function StudyCardBack({
     isCorrect,
     handleSelection,
     handleExamplePlay,
-    ...shadowProps
+    handleWordPlay,
+    shadowSentence,
+    isPro,
+    playbackSpeed,
+    setPlaybackSpeed,
+    handleShadowPlay,
+    isShadowSpeaking,
+    handleRecordToggle,
+    isRecording,
+    handleShuffle,
+    isShuffling,
+    onRate,
 }: StudyCardBackProps) {
+    // Generate context tag based on shadow sentence content
+    const getContextTag = () => {
+        const text = shadowSentence.toLowerCase();
+        if (text.includes('technolog') || text.includes('smartphone') || text.includes('digital')) return 'Technology';
+        if (text.includes('art') || text.includes('beauty') || text.includes('aesthetic')) return 'Art';
+        if (text.includes('business') || text.includes('market') || text.includes('economic')) return 'Business';
+        if (text.includes('science') || text.includes('research') || text.includes('study')) return 'Science';
+        return 'General';
+    };
+
+    const contextTag = getContextTag();
+
+    // Simple translation for shadow sentence (placeholder - in real app, would come from AI)
+    const shadowTranslation = "在现代快速发展的技术时代，智能手机已经变得无处不在。";
+
     return (
         <div
-            className="absolute w-full h-full bg-white rounded-3xl shadow-sm border border-gray-200 flex flex-col p-6 overflow-y-auto no-scrollbar"
-            style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}
+            className="absolute inset-0 bg-white rounded-3xl shadow-xl border border-neutral-200 flex flex-col transition-all duration-500 overflow-y-auto"
+            style={{
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)"
+            }}
             onMouseUp={handleSelection}
         >
-            {/* Result Header */}
-            <div className="text-center mb-4">
-                <h2 className="text-3xl font-bold text-braun-text mb-1">
-                    <DiffResult input={userInput} target={displayTarget} rawTarget={rawTarget} />
-                </h2>
-                <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
-                    <span className="font-mono bg-gray-50 px-2 py-0.5 rounded">
-                        {card.phonetic || "/.../"}
-                    </span>
-                    <span className="italic">{card.pos || "n."}</span>
+            {/* Sticky Header */}
+            <div className="p-8 border-b border-neutral-100 bg-neutral-50/50 sticky top-0 backdrop-blur-sm z-20">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h2 className="text-4xl font-bold text-neutral-900 mb-2">
+                            <DiffResult input={userInput} target={displayTarget} rawTarget={rawTarget} />
+                        </h2>
+                        <div className="flex items-center gap-3 text-neutral-500">
+                            <span className="font-mono bg-neutral-200 px-2 py-0.5 rounded text-sm">
+                                {card.phonetic || "/.../"}
+                            </span>
+                            <span className="italic text-sm">{card.pos || "n."}</span>
+                            <button
+                                onClick={handleWordPlay}
+                                className="hover:text-orange-600 disabled:opacity-50"
+                            >
+                                <Volume2 size={16} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-lg text-neutral-700">{card.translation}</p>
+                    </div>
                 </div>
-                {!isCorrect && (
-                    <p className="text-base text-orange-600 mt-2 font-semibold tracking-tight">
-                        Correct: {displayTarget}
-                    </p>
-                )}
             </div>
 
-            {/* Context Content */}
-            <div className="space-y-5 flex-1">
-                {/* Definition */}
-                <div className="space-y-1">
-                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Meaning</h4>
-                    <p className="text-gray-800 leading-relaxed text-sm">
-                        {card.definition}
-                        <span className="block text-gray-400 text-xs mt-1">{card.translation}</span>
-                    </p>
-                </div>
-
-                {/* Short Example (Audio First) */}
+            {/* Content Area */}
+            <div className="p-8 space-y-8 flex-1">
+                {/* Example Section */}
                 {card.example && (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                            <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
                                 Example
-                            </h4>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs text-braun-accent hover:bg-orange-50"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExamplePlay(card.example!);
-                                }}
+                            </h3>
+                            <button
+                                onClick={() => handleExamplePlay(card.example!)}
+                                className="text-orange-600 hover:text-orange-700 disabled:opacity-50"
                             >
-                                <Volume2 className="w-3.5 h-3.5 mr-1" /> Listen
-                            </Button>
+                                <Volume2 size={16} />
+                            </button>
                         </div>
-                        <div
-                            className="relative group cursor-pointer"
-                            onClick={(e) => e.currentTarget.classList.toggle("reveal")}
-                        >
-                            <p className="text-gray-700 leading-relaxed text-sm blur-sm group-[.reveal]:blur-0 transition-all duration-300 select-none">
-                                {card.example}
-                            </p>
-                            <div className="absolute inset-0 flex items-center justify-center group-[.reveal]:hidden pointer-events-none">
-                                <span className="text-xs text-gray-400 bg-white/80 px-2 py-1 rounded">
-                                    Click to reveal
-                                </span>
-                            </div>
-                        </div>
+                        <p className="text-lg text-neutral-800 leading-relaxed font-light border-l-2 border-orange-500 pl-4">
+                            {card.example}
+                        </p>
                     </div>
                 )}
 
-                {/* Shadow Sentence (Pro Feature) */}
-                <ShadowPlayer {...shadowProps} />
+                {/* Shadow Context Section */}
+                {shadowSentence && (
+                    <div className="space-y-3 bg-neutral-50 p-6 rounded-xl border border-neutral-100 relative group">
+                        {/* Tag and Shuffle */}
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold tracking-wide">
+                                    {contextTag}
+                                </span>
+                            </div>
+                            {isPro && (
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={handleShuffle}
+                                        disabled={isShuffling}
+                                        className="p-1 hover:bg-neutral-200 rounded"
+                                        title="Regenerate Context"
+                                    >
+                                        <RotateCcw size={14} className={isShuffling ? "animate-spin" : ""} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Shadow Sentence */}
+                        <p className="text-md text-neutral-700 leading-relaxed cursor-text selection:bg-orange-100 selection:text-orange-900">
+                            {shadowSentence}
+                        </p>
+
+                        {/* Translation */}
+                        <p className="text-sm text-neutral-400 mt-2 border-t border-neutral-200 pt-2">
+                            {shadowTranslation}
+                        </p>
+
+                        {/* Controls */}
+                        <div className="flex items-center justify-between pt-4">
+                            {/* Speed Controls */}
+                            <div className="flex items-center gap-2 bg-white rounded-full p-1 border border-neutral-200 shadow-sm">
+                                <button
+                                    onClick={() => setPlaybackSpeed(0.7)}
+                                    className={cn(
+                                        "px-2 py-1 text-xs rounded-full",
+                                        playbackSpeed === 0.7
+                                            ? "bg-neutral-800 text-white"
+                                            : "text-neutral-500"
+                                    )}
+                                >
+                                    0.7x
+                                </button>
+                                <button
+                                    onClick={() => setPlaybackSpeed(1.0)}
+                                    className={cn(
+                                        "px-2 py-1 text-xs rounded-full",
+                                        playbackSpeed === 1.0
+                                            ? "bg-neutral-800 text-white"
+                                            : "text-neutral-500"
+                                    )}
+                                >
+                                    1.0x
+                                </button>
+                                <button
+                                    onClick={handleShadowPlay}
+                                    disabled={isShadowSpeaking}
+                                    className="p-1.5 text-neutral-800 hover:text-orange-600 disabled:opacity-50"
+                                >
+                                    <Volume2 size={18} />
+                                </button>
+                            </div>
+
+                            {/* Shadow Recording Button */}
+                            <button
+                                onClick={handleRecordToggle}
+                                disabled={!isPro}
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all",
+                                    isRecording
+                                        ? "border-red-500 text-red-600 bg-red-50"
+                                        : isPro
+                                            ? "border-neutral-300 text-neutral-600 hover:border-neutral-400"
+                                            : "border-neutral-200 text-neutral-300 cursor-not-allowed"
+                                )}
+                            >
+                                <Mic size={16} />
+                                <span className="text-xs font-medium">Shadow</span>
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Rating Buttons - Sticky Bottom */}
+            <div className="p-4 border-t border-neutral-100 bg-white sticky bottom-0">
+                <div className="grid grid-cols-4 gap-3">
+                    <button
+                        onClick={() => onRate('forgot')}
+                        className="flex flex-col items-center p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                    >
+                        <span className="text-xs font-bold uppercase mb-1">Forgot</span>
+                        <span className="text-[10px] text-red-400">1m</span>
+                    </button>
+                    <button
+                        onClick={() => onRate('hard')}
+                        className="flex flex-col items-center p-2 rounded-lg hover:bg-neutral-100 text-neutral-600 transition-colors"
+                    >
+                        <span className="text-xs font-bold uppercase mb-1">Hard</span>
+                        <span className="text-[10px] text-neutral-400">2d</span>
+                    </button>
+                    <button
+                        onClick={() => onRate('good')}
+                        className="flex flex-col items-center p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                    >
+                        <span className="text-xs font-bold uppercase mb-1">Good</span>
+                        <span className="text-[10px] text-green-400">4d</span>
+                    </button>
+                    <button
+                        onClick={() => onRate('easy')}
+                        className="flex flex-col items-center p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                    >
+                        <span className="text-xs font-bold uppercase mb-1">Easy</span>
+                        <span className="text-[10px] text-blue-400">7d</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
 
-// Simple Diff Component
+// Diff Result Component
 function DiffResult({
     input,
     target,
@@ -136,17 +270,17 @@ function DiffResult({
     }
 
     return (
-        <span className="tracking-wide text-[#1A1A1A] font-semibold">
+        <span className="tracking-wide text-neutral-900 font-semibold">
             {normalizedTarget.split("").map((char, idx) => {
                 const match = (normalizedInput[idx] || "").toLowerCase() === char.toLowerCase();
                 return (
                     <span
                         key={`${rawTarget}-${idx}`}
-                        className={cn("relative px-0.5 transition-colors", match ? "text-[#1A1A1A]" : "text-[#EA580C]")}
+                        className={cn("relative px-0.5 transition-colors", match ? "text-neutral-900" : "text-red-600")}
                     >
                         {char}
                         {!match && (
-                            <span className="absolute left-1/2 -translate-x-1/2 bottom-0.5 h-[2px] w-5/6 bg-[#EA580C]/40 rounded-full" />
+                            <span className="absolute left-1/2 -translate-x-1/2 bottom-0.5 h-[2px] w-5/6 bg-red-600/40 rounded-full" />
                         )}
                     </span>
                 );

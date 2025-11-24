@@ -52,7 +52,8 @@ export function SettingsForm({ profile }: SettingsFormProps) {
       }
 
       router.refresh()
-      alert("Profile updated successfully!")
+      // Redirect to dashboard (英语角) after successful save
+      router.push('/dashboard')
     } catch (error: any) {
       console.error("Error updating profile:", error)
       alert("Failed to update profile: " + error.message)

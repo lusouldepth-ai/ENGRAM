@@ -19,7 +19,7 @@ export const translations = {
         'nav.login': '登录',
         'nav.learning': '学习中心',
         'nav.getStarted': '开始使用',
-        'hero.title': '刻在脑海里。',
+        'hero.title': '让记忆成为本能。',
         'hero.subtitle': '不仅仅是记忆，而是通过AI驱动的情境学习，让单词成为你的一部分。',
         'hero.cta': '开始旅程',
         'hero.howItWorks': '工作原理',

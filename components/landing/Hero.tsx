@@ -25,11 +25,7 @@ export function Hero() {
                      {t('hero.cta')}
                   </Button>
                </Link>
-               <Link href="#method" className="w-full md:w-auto">
-                  <Button variant="ghost" className="w-full md:w-auto text-gray-500 px-8 py-6 rounded-full font-medium text-lg hover:text-braun-text transition-colors hover:bg-transparent">
-                     {t('hero.howItWorks')}
-                  </Button>
-               </Link>
+
             </div>
          </div>
 

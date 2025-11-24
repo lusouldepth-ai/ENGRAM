@@ -27,18 +27,27 @@ export async function generateCards(input: string, context?: GenerateContext) {
     }
 
     // CHECK QUOTA
-    const { data: hasQuota, error: rpcError } = await supabase
-      .rpc('check_daily_quota', { user_uuid: user.id });
+    // First check if user is PRO
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tier')
+      .eq('id', user.id)
+      .single();
 
-    if (rpcError) {
-      console.error("Quota check error:", rpcError);
-      // Fallback: Allow if error? Or Block? Block to be safe.
-      return { success: false, error: "Failed to check quota." };
-    }
+    const isPro = profile?.tier === 'pro';
 
-    if (hasQuota === false) {
-      // Quota exceeded
-      return { success: false, error: "QUOTA_EXCEEDED" };
+    if (!isPro) {
+      const { data: hasQuota, error: rpcError } = await supabase
+        .rpc('check_daily_quota', { user_uuid: user.id });
+
+      if (rpcError) {
+        console.error("Quota check error:", rpcError);
+        return { success: false, error: "Failed to check quota." };
+      }
+
+      if (hasQuota === false) {
+        return { success: false, error: "QUOTA_EXCEEDED" };
+      }
     }
 
     if (!process.env.DEEPSEEK_API_KEY) {
