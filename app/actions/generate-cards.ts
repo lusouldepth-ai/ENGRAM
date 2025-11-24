@@ -15,8 +15,8 @@ type GenerateContext = {
   ui_language?: string;
 }
 
-export async function generateCards(input: string, context?: GenerateContext) {
-  console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...", context);
+export async function generateCards(input: string, context?: GenerateContext, limit: number = 5) {
+  console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...", context, "Limit:", limit);
 
   try {
     const supabase = createClient();
@@ -74,36 +74,36 @@ export async function generateCards(input: string, context?: GenerateContext) {
     }
 
     const systemPrompt = `
-You are an elite language coach.
-Target learner profile:
-- Goal: ${goal}
-- Level: ${level}
-- Input theme from user: ${input}
-
-Mission:
-- Generate exactly 5 vocabulary cards that are CRITICAL for the goal above.
-- Every card must feel handcrafted for this target. Avoid generic textbook words.
-- Think about the scenarios this learner will face (presentations, essays, speaking tests, etc.).
-
-For each card, return JSON matching our cards table schema:
-{
-  "front": "Word",
-  "phonetic": "/ipa/",
-  "pos": "n./v.",
-  "translation": "Definition (Language: ${ui_language === 'cn' ? 'Chinese' : 'English'})",
-  "definition": "Explain the word in clear English. Provide nuance relevant to ${goal}.",
-  "example": "sentence_standard – short, direct usage that proves understanding.",
-  "short_usage": "3-6 word collocation or phrase.",
-  "shadow_sentence": "12-15 word rhythmic sentence tied to ${goal}. Feels like native speech for shadowing.",
-  "root_analysis": "Origins / morphology insight."
-}
-
-Rules:
-1. The shadow_sentence MUST reference the theme of ${goal}.
-2. The example sentence must be simple (dictation friendly).
-3. Never repeat the same scenario twice; diversify contexts tied to the goal.
-4. Output ONLY a valid JSON array of 5 objects. No markdown. No prose.
-`;
+    You are an elite language coach.
+    Target learner profile:
+    - Goal: ${goal}
+    - Level: ${level}
+    - Input theme from user: ${input}
+    
+    Mission:
+    - Generate exactly ${limit} vocabulary cards that are CRITICAL for the goal above.
+    - Every card must feel handcrafted for this target. Avoid generic textbook words.
+    - Think about the scenarios this learner will face (presentations, essays, speaking tests, etc.).
+    
+    For each card, return JSON matching our cards table schema:
+    {
+      "front": "Word",
+      "phonetic": "/ipa/",
+      "pos": "n./v.",
+      "translation": "Definition (Language: ${ui_language === 'cn' ? 'Chinese' : 'English'})",
+      "definition": "Explain the word in clear English. Provide nuance relevant to ${goal}.",
+      "example": "sentence_standard – short, direct usage that proves understanding.",
+      "short_usage": "3-6 word collocation or phrase.",
+      "shadow_sentence": "12-15 word rhythmic sentence tied to ${goal}. Feels like native speech for shadowing.",
+      "root_analysis": "Origins / morphology insight."
+    }
+    
+    Rules:
+    1. The shadow_sentence MUST reference the theme of ${goal}.
+    2. The example sentence must be simple (dictation friendly).
+    3. Never repeat the same scenario twice; diversify contexts tied to the goal.
+    4. Output ONLY a valid JSON array of ${limit} objects. No markdown. No prose.
+    `;
 
     const response = await client.chat.completions.create({
       model: 'deepseek-chat',

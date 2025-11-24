@@ -46,7 +46,6 @@ export function StudyCard({
   const [isRecording, setIsRecording] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
@@ -79,14 +78,12 @@ export function StudyCard({
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
-
-    // Cancel all Speech Synthesis utterances
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-
-    if (utteranceRef.current) {
-      utteranceRef.current = null;
+    
+    // Stop global TTS if playing
+    if (typeof window !== 'undefined') {
+        // We might want to expose a stop method from ttsService if needed
+        // For now, browser synthesis cancel is handled inside playHighQualitySpeech
+        window.speechSynthesis.cancel();
     }
 
     setIsSpeaking(false);
@@ -98,18 +95,13 @@ export function StudyCard({
     speakViaWebAPI(rawTarget);
   };
 
-  const handleWordPlay = () => {
-    stopAudio();
-    speakViaWebAPI(rawTarget);
-  };
-
   const handleExamplePlay = (text: string) => {
     stopAudio();
     if (!text) return;
     speakViaWebAPI(text);
   };
 
-  const speakViaWebAPI = async (text: string) => {
+  const speakViaWebAPI = async (text: string, speed: number = 0.75, setState: (val: boolean) => void = setIsSpeaking) => {
     if (typeof window === 'undefined') {
       console.warn('Not in browser environment');
       return;
@@ -121,16 +113,17 @@ export function StudyCard({
     // Wait a tiny bit to ensure cleanup is complete
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    setIsSpeaking(true);
+    setState(true);
 
     try {
+      // Dynamically import to avoid SSR issues, although ttsService is now safe
       const { playHighQualitySpeech } = await import('@/lib/services/ttsService');
       const accentType = accent === 'uk' ? 'UK' : 'US';
-      await playHighQualitySpeech(text, accentType, 0.75);
+      await playHighQualitySpeech(text, accentType, speed);
     } catch (error) {
       console.error('TTS playback error:', error);
     } finally {
-      setIsSpeaking(false);
+      setState(false);
     }
   };
 
@@ -142,16 +135,7 @@ export function StudyCard({
     }
 
     stopAudio();
-
-    const utterance = new SpeechSynthesisUtterance(shadowSentence);
-    utterance.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-    utterance.rate = playbackSpeed;
-
-    utterance.onstart = () => setIsShadowSpeaking(true);
-    utterance.onend = () => setIsShadowSpeaking(false);
-    utterance.onerror = () => setIsShadowSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
+    speakViaWebAPI(shadowSentence, playbackSpeed, setIsShadowSpeaking);
   };
 
   const handleRecordToggle = async () => {
@@ -277,7 +261,7 @@ export function StudyCard({
             isCorrect={isCorrect}
             handleSelection={handleSelection}
             handleExamplePlay={handleExamplePlay}
-            handleWordPlay={handleWordPlay}
+            handleWordPlay={handlePlay}
             shadowSentence={shadowSentence}
             isPro={isPro}
             playbackSpeed={playbackSpeed}

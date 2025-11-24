@@ -1,17 +1,11 @@
-import { GoogleGenAI, Modality } from "@google/genai";
-
-export type Accent = 'US' | 'UK';
-
-// Initialize Gemini API
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
-let ai: GoogleGenAI | null = null;
-
-if (apiKey) {
-    ai = new GoogleGenAI({ apiKey });
-}
+import { generateSpeech, Accent } from '@/app/actions/tts-action';
 
 // Singleton Audio Context
 let audioContext: AudioContext | null = null;
+
+// Simple in-memory cache for TTS audio buffers
+// Key: `${text}-${accent}` (speed is applied during playback, not generation)
+const ttsCache = new Map<string, AudioBuffer>();
 
 const getAudioContext = async () => {
     if (!audioContext) {
@@ -73,7 +67,7 @@ async function convertPCMToAudioBuffer(
 }
 
 /**
- * Plays text using Gemini High-Quality TTS with fallback to browser SpeechSynthesis
+ * Plays text using Gemini High-Quality TTS via Server Action
  */
 export const playHighQualitySpeech = async (text: string, accent: Accent = 'US', speed: number = 1.0): Promise<void> => {
 
@@ -82,88 +76,62 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
         window.speechSynthesis.cancel();
     }
 
-    // 1. Try Gemini TTS if API Key exists
-    if (ai) {
-        try {
-            // Map accents to specific voices
-            const voiceName = accent === 'US' ? 'Kore' : 'Puck';
-
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-tts",
-                contents: [{ parts: [{ text }] }],
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: {
-                                voiceName: voiceName
-                            },
-                        },
-                    },
-                },
+    try {
+        const ctx = await getAudioContext();
+        const cacheKey = `${text.trim()}-${accent}`;
+        
+        if (ttsCache.has(cacheKey)) {
+            console.log('TTS: Cache hit for', cacheKey);
+            const audioBuffer = ttsCache.get(cacheKey)!;
+            
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.playbackRate.value = speed;
+            source.connect(ctx.destination);
+            source.start();
+            
+            return new Promise((resolve) => {
+                source.onended = () => resolve();
             });
-
-            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-            if (base64Audio) {
-                const ctx = await getAudioContext();
-                const bytes = base64ToBytes(base64Audio);
-
-                // Decode the raw PCM data using our manual helper, NOT ctx.decodeAudioData
-                const audioBuffer = await convertPCMToAudioBuffer(bytes, ctx, 24000);
-
-                const source = ctx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.playbackRate.value = speed;
-                source.connect(ctx.destination);
-                source.start();
-
-                console.log('Gemini TTS: Playing audio successfully');
-
-                // Return a promise that resolves when audio ends
-                return new Promise((resolve) => {
-                    source.onended = () => {
-                        console.log('Gemini TTS: Audio playback ended');
-                        resolve();
-                    };
-                });
-            }
-        } catch (error) {
-            console.warn("Gemini TTS failed (using fallback):", error);
-            // Fall through to browser backup
-        }
-    }
-
-    // 2. Fallback to Browser SpeechSynthesis
-    // Ensure we cancel again before starting fallback (in case Gemini partially started)
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-
-    return new Promise((resolve, reject) => {
-        window.speechSynthesis.cancel(); // Cancel one more time to be sure
-
-        const utterance = new SpeechSynthesisUtterance(text);
-
-        // Attempt to find a matching system voice
-        const voices = window.speechSynthesis.getVoices();
-        let selectedVoice = null;
-
-        if (accent === 'UK') {
-            selectedVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK') || v.name.includes('British'));
-        } else {
-            selectedVoice = voices.find(v => v.lang === 'en-US' || v.name.includes('US') || v.name.includes('United States'));
         }
 
-        if (selectedVoice) utterance.voice = selectedVoice;
-        utterance.rate = speed;
+        // Call Server Action to generate speech
+        const result = await generateSpeech(text, accent);
 
-        utterance.onend = () => resolve();
-        utterance.onerror = (e) => {
-            console.error("Browser TTS error", e);
-            resolve(); // Resolve anyway to ensure UI doesn't hang
-        };
+        if (!result.success || !result.audioData) {
+             if (result.error === "QUOTA_EXCEEDED") {
+                alert("Gemini TTS Limit Reached: You have exceeded the free tier usage limit. Please wait a moment.");
+             } else {
+                console.error("TTS Generation failed:", result.error);
+                // alert("TTS Error: " + result.error);
+             }
+             return;
+        }
 
-        window.speechSynthesis.speak(utterance);
-    });
+        const bytes = base64ToBytes(result.audioData);
+        const audioBuffer = await convertPCMToAudioBuffer(bytes, ctx, 24000);
+        
+        // Store in cache
+        ttsCache.set(cacheKey, audioBuffer);
+
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.playbackRate.value = speed;
+        source.connect(ctx.destination);
+        source.start();
+
+        console.log('TTS: Playing audio successfully');
+
+        // Return a promise that resolves when audio ends
+        return new Promise((resolve) => {
+            source.onended = () => {
+                console.log('TTS: Audio playback ended');
+                resolve();
+            };
+        });
+
+    } catch (error: any) {
+        console.error("TTS failed:", error);
+        // alert("TTS Error: " + (error instanceof Error ? error.message : String(error)));
+    }
 };
