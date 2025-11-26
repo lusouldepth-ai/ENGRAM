@@ -23,6 +23,10 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
   const [isSubmitting, startTransition] = useTransition();
   const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(null);
 
+  // Debug: Log received profile
+  console.log('📋 [ReviewSection] Received profile:', profile);
+  console.log('📋 [ReviewSection] tier:', profile?.tier, '| accent_preference:', profile?.accent_preference);
+
   useEffect(() => {
     const loadCards = async () => {
       const dueCards = await getDueCards();

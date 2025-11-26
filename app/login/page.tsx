@@ -61,25 +61,24 @@ export default function LoginPage() {
 
       } else {
         // Sign In Logic
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: authData, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
         
-        // Check onboarding status before redirecting
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('onboarding_completed')
-          .eq('id', (await supabase.auth.getUser()).data.user?.id)
-          .single();
+        // Check onboarding status - use the user from signIn response
+        if (authData.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', authData.user.id)
+            .single();
 
-        if (profile && !profile.onboarding_completed) {
-          router.push('/onboarding');
-        } else {
-        router.push('/dashboard');
+          // Redirect based on onboarding status
+          router.push(profile?.onboarding_completed ? '/dashboard' : '/onboarding');
+          router.refresh();
         }
-        router.refresh();
       }
     } catch (err: any) {
       setError(err.message);

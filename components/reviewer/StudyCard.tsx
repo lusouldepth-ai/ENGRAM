@@ -48,19 +48,25 @@ export function StudyCard({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const playedCardRef = useRef<string | null>(null);
 
   const router = useRouter();
   const rawTarget = (card.front || '').trim();
   const isAllCaps = rawTarget && rawTarget === rawTarget.toUpperCase();
   const displayTarget = isAllCaps ? rawTarget : rawTarget.toLowerCase();
 
-  // Auto-play on card load
+  // Debug: Log userTier and accentPreference
+  console.log('🎴 [StudyCard] userTier:', userTier, '| isPro:', isPro);
+  console.log('🎴 [StudyCard] accentPreference:', accentPreference, '| accent:', accent);
+
+  // Auto-play on card load - only once per card
   useEffect(() => {
-    if (!isFlipped) {
+    if (card.id !== playedCardRef.current) {
+      playedCardRef.current = card.id;
       handlePlay();
     }
     return () => stopAudio();
-  }, [card.id, isFlipped]);
+  }, [card.id]);
 
   // Reset state on card change
   useEffect(() => {
@@ -101,7 +107,7 @@ export function StudyCard({
     speakViaWebAPI(text);
   };
 
-  const speakViaWebAPI = async (text: string, speed: number = 0.75, setState: (val: boolean) => void = setIsSpeaking) => {
+  const speakViaWebAPI = async (text: string, speed: number = 1.0, setState: (val: boolean) => void = setIsSpeaking) => {
     if (typeof window === 'undefined') {
       console.warn('Not in browser environment');
       return;

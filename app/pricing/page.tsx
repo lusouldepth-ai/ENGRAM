@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Check, Lock, Star, Zap } from "lucide-react";
+import { Check, Lock, Star, Zap, ArrowLeft, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -23,11 +23,31 @@ export default function PricingPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        const { data } = await supabase
+        let { data } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
+        
+        // If profile doesn't exist, create one
+        if (!data) {
+          console.log("⚠️ [Pricing] Profile missing, creating one...");
+          await supabase
+            .from('profiles')
+            .insert({ 
+              id: user.id, 
+              email: user.email,
+              tier: 'free',
+              accent_preference: 'US'
+            });
+          
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          data = newProfile;
+        }
         setProfile(data);
       }
       setLoading(false);
@@ -42,11 +62,17 @@ export default function PricingPage() {
     }
 
     setUpgrading(true);
-    // Mock Upgrade: Set tier to 'pro' in Supabase
+    
+    // Use upsert to ensure profile exists and update tier
     const { error } = await supabase
       .from('profiles')
-      .update({ tier: 'pro' })
-      .eq('id', user.id);
+      .upsert({ 
+        id: user.id, 
+        email: user.email,
+        tier: 'pro' 
+      }, { 
+        onConflict: 'id' 
+      });
 
     if (error) {
       alert("Upgrade failed: " + error.message);
@@ -65,6 +91,15 @@ export default function PricingPage() {
     setUpgrading(false);
   };
 
+  const handleGoBack = () => {
+    // Try to go back, or fallback to dashboard
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/dashboard');
+    }
+  };
+
   const isPro = profile?.tier === 'pro';
 
   return (
@@ -72,7 +107,42 @@ export default function PricingPage() {
       <Navbar user={user} />
 
       <main className="flex-1 flex flex-col items-center p-6 md:p-12">
-        <div className="w-full max-w-5xl text-center mb-12 pt-12 space-y-4">
+        {/* Back Button */}
+        <div className="w-full max-w-5xl mb-4">
+          <Button
+            variant="ghost"
+            onClick={handleGoBack}
+            className="text-gray-500 hover:text-gray-700 gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            返回
+          </Button>
+        </div>
+
+        {/* Pro User Banner */}
+        {isPro && !loading && (
+          <div className="w-full max-w-5xl mb-8 p-6 bg-gradient-to-r from-[#EA580C]/10 to-orange-100 rounded-2xl border border-[#EA580C]/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-[#EA580C] rounded-full flex items-center justify-center">
+                  <Crown className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#1A1A1A]">你已经是 Pro 会员了！</h3>
+                  <p className="text-gray-600 text-sm">尽情享受所有高级功能吧</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => router.push('/dashboard')}
+                className="bg-[#EA580C] hover:bg-[#C2410C] text-white rounded-full px-6"
+              >
+                开始学习
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full max-w-5xl text-center mb-12 pt-6 space-y-4">
           <p className="text-xs tracking-[0.4em] uppercase text-gray-400">{t('pricing.cadence')}</p>
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1A1A]">
             {t('pricing.title')}

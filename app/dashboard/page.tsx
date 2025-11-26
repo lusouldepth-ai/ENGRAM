@@ -17,11 +17,37 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  // Try to get profile
+  let { data: profile } = await supabase
     .from("profiles")
     .select("tier, accent_preference, shadow_rate")
     .eq("id", user.id)
     .single();
+
+  // If profile doesn't exist, create one with defaults
+  if (!profile) {
+    console.log("⚠️ [Dashboard] Profile missing, creating one...");
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert({ 
+        id: user.id, 
+        email: user.email,
+        tier: 'free',
+        accent_preference: 'US'
+      });
+    
+    if (!insertError) {
+      // Fetch the newly created profile
+      const { data: newProfile } = await supabase
+        .from("profiles")
+        .select("tier, accent_preference, shadow_rate")
+        .eq("id", user.id)
+        .single();
+      profile = newProfile;
+    } else {
+      console.error("Failed to create profile:", insertError);
+    }
+  }
 
   console.log("Dashboard Profile Fetch:", profile);
 

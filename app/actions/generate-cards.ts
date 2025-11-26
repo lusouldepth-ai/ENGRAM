@@ -7,6 +7,8 @@ import { redirect } from 'next/navigation';
 const client = new OpenAI({
   baseURL: 'https://api.deepseek.com',
   apiKey: process.env.DEEPSEEK_API_KEY,
+  timeout: 30000, // 30秒超时
+  maxRetries: 1,  // 最多重试1次
 });
 
 type GenerateContext = {
@@ -14,6 +16,50 @@ type GenerateContext = {
   goal?: string;
   ui_language?: string;
 }
+
+// CEFR 词汇标准定义 - 用于指导 AI 生成正确难度的词汇
+const CEFR_VOCABULARY_GUIDE: Record<string, {
+  wordCount: string;
+  frequency: string;
+  characteristics: string;
+  examples: string;
+}> = {
+  // A1 - 入门级
+  'beginner': {
+    wordCount: '约500个核心词汇',
+    frequency: '英语最高频500词（Oxford 3000中最基础部分）',
+    characteristics: '日常生活最基本词汇：数字、颜色、家庭成员、基本动词（be, have, do, go, eat, drink）、常见名词（house, car, book）',
+    examples: 'hello, thank you, please, water, food, family, work, school, good, bad, big, small'
+  },
+  // A2 - 初级
+  'elementary': {
+    wordCount: '约1000-1500个词汇',
+    frequency: '英语高频1500词（Oxford 3000基础部分）',
+    characteristics: '简单日常交流词汇：购物、旅行、描述人物和地点、表达简单观点、基本形容词和副词',
+    examples: 'appointment, schedule, recommend, comfortable, convenient, experience, improve, similar, although'
+  },
+  // B1 - 中级
+  'intermediate': {
+    wordCount: '约2500-3000个词汇',
+    frequency: '英语中高频词汇（Oxford 3000完整 + 部分5000）',
+    characteristics: '工作和学习常用词汇：表达观点、讨论话题、描述经历、抽象概念入门',
+    examples: 'perspective, significant, analyze, establish, regarding, circumstances, furthermore, consequently'
+  },
+  // B2 - 中高级
+  'upper_intermediate': {
+    wordCount: '约4000-5000个词汇',
+    frequency: '英语学术和专业词汇（Oxford 5000 + AWL学术词表）',
+    characteristics: '复杂讨论和专业场景：学术写作、正式场合、抽象概念、细微差别表达',
+    examples: 'constitute, inherent, paradigm, substantial, coherent, comprehensive, unprecedented, implications'
+  },
+  // C1 - 高级
+  'advanced': {
+    wordCount: '约6000-8000个词汇',
+    frequency: '高级学术和专业词汇',
+    characteristics: '接近母语水平：复杂学术论文、专业领域深度讨论、成语和习语、文学表达',
+    examples: 'concomitant, elucidate, juxtapose, ostensible, propensity, quintessential, albeit, notwithstanding'
+  }
+};
 
 export async function generateCards(input: string, context?: GenerateContext, limit: number = 5) {
   console.log("🚀 [Action] Starting generation for:", input.substring(0, 20) + "...", context, "Limit:", limit);
@@ -73,37 +119,46 @@ export async function generateCards(input: string, context?: GenerateContext, li
       }
     }
 
-    const systemPrompt = `
-    You are an elite language coach.
-    Target learner profile:
-    - Goal: ${goal}
-    - Level: ${level}
-    - Input theme from user: ${input}
+    // 获取 CEFR 词汇指南
+    const cefrGuide = CEFR_VOCABULARY_GUIDE[level] || CEFR_VOCABULARY_GUIDE['intermediate'];
     
-    Mission:
-    - Generate exactly ${limit} vocabulary cards that are CRITICAL for the goal above.
-    - Every card must feel handcrafted for this target. Avoid generic textbook words.
-    - Think about the scenarios this learner will face (presentations, essays, speaking tests, etc.).
-    
-    For each card, return JSON matching our cards table schema:
-    {
-      "front": "Word",
-      "phonetic": "/ipa/",
-      "pos": "n./v.",
-      "translation": "Definition (Language: ${ui_language === 'cn' ? 'Chinese' : 'English'})",
-      "definition": "Explain the word in clear English. Provide nuance relevant to ${goal}.",
-      "example": "sentence_standard – short, direct usage that proves understanding.",
-      "short_usage": "3-6 word collocation or phrase.",
-      "shadow_sentence": "12-15 word rhythmic sentence tied to ${goal}. Feels like native speech for shadowing.",
-      "root_analysis": "Origins / morphology insight."
-    }
-    
-    Rules:
-    1. The shadow_sentence MUST reference the theme of ${goal}.
-    2. The example sentence must be simple (dictation friendly).
-    3. Never repeat the same scenario twice; diversify contexts tied to the goal.
-    4. Output ONLY a valid JSON array of ${limit} objects. No markdown. No prose.
-    `;
+    const systemPrompt = `你是一位专业的英语词汇教育专家，精通 CEFR 标准。
+
+## 学习者档案
+- 学习目标：${goal}
+- 英语水平：${level}
+- 主题输入：${input}
+
+## CEFR 词汇标准（必须严格遵守！）
+当前用户水平对应的词汇要求：
+- 词汇量范围：${cefrGuide.wordCount}
+- 词频标准：${cefrGuide.frequency}
+- 词汇特征：${cefrGuide.characteristics}
+- 难度参考示例：${cefrGuide.examples}
+
+## 任务
+生成恰好 ${limit} 个词汇卡片。
+
+## 严格规则
+1. **词汇难度必须匹配**：所有词汇必须在 ${cefrGuide.frequency} 范围内，不能超出用户水平！
+2. **场景相关性**：词汇必须与 ${goal} 高度相关
+3. **例句难度匹配**：例句也必须符合用户水平，使用简单句式
+4. **不要太简单也不要太难**：参考上述难度示例
+
+## 输出格式（JSON数组，无markdown）
+[{
+  "front": "单词",
+  "phonetic": "/音标/",
+  "pos": "词性",
+  "translation": "${ui_language === 'cn' ? '中文释义' : 'English definition'}",
+  "definition": "英文解释（符合${level}水平的简单解释）",
+  "example": "简短例句（10词以内，适合听写）",
+  "short_usage": "常用搭配（3-6词）",
+  "shadow_sentence": "跟读句子（12-15词，与${goal}相关）",
+  "root_analysis": "词根词源"
+}]
+
+只输出JSON数组，不要任何其他文字。`;
 
     const response = await client.chat.completions.create({
       model: 'deepseek-chat',

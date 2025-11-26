@@ -29,60 +29,53 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  // Public paths that should not trigger redirects
+  // Public paths - skip all checks for better performance
   const publicPaths = ['/', '/login', '/pricing', '/method', '/auth/callback']
-  const isPublicPath = publicPaths.includes(request.nextUrl.pathname)
+  const pathname = request.nextUrl.pathname
+  const isPublicPath = publicPaths.includes(pathname)
+  const isStaticAsset = pathname.startsWith('/_next') || pathname.includes('.')
   
-  // Auth Routes Protection
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
+  // Skip middleware for static assets and API routes
+  if (isStaticAsset) {
+    return response
+  }
+
+  // For public paths, only refresh session without profile query
+  if (isPublicPath) {
+    await supabase.auth.getUser() // Just refresh session
+    return response
+  }
+
+  // Protected routes - need full auth check
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const isLoginPage = pathname.startsWith('/login')
+  const isOnboardingPage = pathname === '/onboarding'
+
+  // No user on protected route -> redirect to login
+  if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Onboarding Logic
-  if (user) {
-    // Fetch profile to check onboarding status
+  // User exists - only query profile when necessary (login/onboarding redirects)
+  if (isLoginPage || isOnboardingPage) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('onboarding_completed')
       .eq('id', user.id)
       .single()
 
-    const isOnboardingPage = request.nextUrl.pathname === '/onboarding'
-    // const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard')
+    const onboardingCompleted = profile?.onboarding_completed ?? false
     
-    // 1. If User is logged in BUT onboarding not completed -> Force to /onboarding
-    // Changed Logic: If profile exists and not completed, force redirect UNLESS already on onboarding page
-    // We should actully BLOCK dashboard access here.
-    if (profile && !profile.onboarding_completed) {
-        if (!isOnboardingPage) {
-             return NextResponse.redirect(new URL('/onboarding', request.url))
-        }
+    if (isLoginPage) {
+      return NextResponse.redirect(
+        new URL(onboardingCompleted ? '/dashboard' : '/onboarding', request.url)
+      )
     }
 
-    // 2. If User is logged in AND onboarding completed -> Redirect away from /onboarding
-    if (profile && profile.onboarding_completed && isOnboardingPage) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (onboardingCompleted && isOnboardingPage) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
-  }
-
-  // Redirect logged in users from auth pages (Login)
-  // ONLY if they are NOT being redirected to onboarding (handled above)
-  if (request.nextUrl.pathname.startsWith('/login') && user) {
-      const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', user.id)
-      .single()
-      
-      if (profile && !profile.onboarding_completed) {
-          return NextResponse.redirect(new URL('/onboarding', request.url))
-      } else {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-      }
   }
 
   return response

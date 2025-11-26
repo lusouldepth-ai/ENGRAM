@@ -35,7 +35,7 @@ export async function updateProfile(data: {
     return { success: true };
 }
 
-export async function generateStarterCards(goal: string, level: string) {
+export async function generateStarterCards(userContext: string, level: string) {
     const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -43,10 +43,11 @@ export async function generateStarterCards(goal: string, level: string) {
         return { success: false, error: "Unauthorized" };
     }
 
-    // "Action: 系统自动调用 DeepSeek 生成 10 张 贴合用户背景的卡片。" (Changed to 10 as per user request)
-    const prompt = `Generate 10 essential vocabulary words for a ${level} learner focusing on ${goal}.`;
+    // 简化 prompt，CEFR 标准已在 generate-cards.ts 中定义
+    const prompt = `为 ${userContext} 场景生成最实用的核心词汇`;
 
-    const genResult = await generateCards(prompt, { goal, level });
+    // 减少到5个词汇以加快响应速度（从60秒降至约20秒）
+    const genResult = await generateCards(prompt, { goal: userContext, level }, 5);
 
     if (!genResult.success || !genResult.data) {
         return { success: false, error: "Failed to generate cards" };
