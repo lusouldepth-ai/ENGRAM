@@ -123,6 +123,7 @@ export interface Database {
           example: string | null
           short_usage: string | null
           shadow_sentence: string | null
+          shadow_sentence_translation: string | null
           root_analysis: string | null
           is_mastered: boolean
           state: number
@@ -144,6 +145,7 @@ export interface Database {
           example?: string | null
           short_usage?: string | null
           shadow_sentence?: string | null
+          shadow_sentence_translation?: string | null
           root_analysis?: string | null
           is_mastered?: boolean
           state?: number
@@ -165,6 +167,7 @@ export interface Database {
           example?: string | null
           short_usage?: string | null
           shadow_sentence?: string | null
+          shadow_sentence_translation?: string | null
           root_analysis?: string | null
           is_mastered?: boolean
           state?: number

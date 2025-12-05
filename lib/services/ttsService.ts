@@ -9,8 +9,9 @@ const ttsCache = new Map<string, AudioBuffer>();
 
 const getAudioContext = async () => {
     if (!audioContext) {
-        // Gemini TTS native sample rate is 24000Hz
-        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        // Use default device sample rate for broader compatibility
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        console.log('AudioContext created with sampleRate', audioContext.sampleRate);
     }
 
     // Resume context if suspended (required by browser security policy)
@@ -78,6 +79,17 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
 
     try {
         const ctx = await getAudioContext();
+        // 确保在用户点击后音频上下文已恢复
+        if (ctx.state !== 'running') {
+            try {
+                await ctx.resume();
+            } catch (e) {
+                console.warn('AudioContext resume failed:', e);
+            }
+        }
+        if (ctx.state !== 'running') {
+            console.warn('AudioContext not running; TTS playback may be blocked by browser.');
+        }
         const cacheKey = `${text.trim()}-${accent}`;
         
         if (ttsCache.has(cacheKey)) {
@@ -88,10 +100,14 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
             source.buffer = audioBuffer;
             source.playbackRate.value = speed;
             source.connect(ctx.destination);
+            console.log('TTS: starting cached audio, duration', audioBuffer.duration, 's');
             source.start();
             
             return new Promise((resolve) => {
-                source.onended = () => resolve();
+                source.onended = () => {
+                    console.log('TTS: cached audio ended');
+                    resolve();
+                };
             });
         }
 
@@ -109,15 +125,38 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
         }
 
         const bytes = base64ToBytes(result.audioData);
-        const audioBuffer = await convertPCMToAudioBuffer(bytes, ctx, 24000);
+        let audioBuffer: AudioBuffer;
+
+        if (result.mimeType === 'audio/raw') {
+            audioBuffer = await convertPCMToAudioBuffer(bytes, ctx, 24000);
+        } else {
+            // audio/mpeg or other compressed formats
+            audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+        }
         
-        // Store in cache
-        ttsCache.set(cacheKey, audioBuffer);
+        // Store in cache (include mimeType in key to avoid mismatch)
+        ttsCache.set(`${cacheKey}-${result.mimeType}`, audioBuffer);
+
+        // Ensure context is running just before playback
+        if (ctx.state !== 'running') {
+            try {
+                await ctx.resume();
+                console.log('AudioContext resumed before playback');
+            } catch (e) {
+                console.warn('AudioContext resume failed before playback:', e);
+            }
+        }
+
+        // Create a gain node to avoid 0-volume edge cases and to allow future control
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1.0;
+        gainNode.connect(ctx.destination);
 
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.playbackRate.value = speed;
-        source.connect(ctx.destination);
+        source.connect(gainNode);
+        console.log('TTS: starting new audio, duration', audioBuffer.duration, 's');
         source.start();
 
         console.log('TTS: Playing audio successfully');

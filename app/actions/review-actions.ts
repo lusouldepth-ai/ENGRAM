@@ -34,10 +34,11 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
   if (!user) return { success: false, error: "Unauthorized" };
 
   // 1. Calculate new SRS parameters (Simplified FSRS-like logic per PRD)
-  // PRD Logic:
-  // Forgot -> 1 min later
-  // Hard -> 2 days later
-  // Good -> 4 days later
+  // Adjusted to align closer with Anki-style initial steps:
+  // Forgot -> 1 minute
+  // Hard   -> 10 minutes
+  // Good   -> 1 day
+  // Easy   -> 4 days (mapped to "good" upstream)
 
   let intervalMinutes = 0;
   let newStatus = 1; // Learning/Review
@@ -52,13 +53,13 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
       newStatus = 1; // Reset to learning/re-learning
       break;
     case 'hard':
-      intervalMinutes = 2 * 24 * 60; // 2 days
-      nextDue.setDate(now.getDate() + 2);
-      newStatus = 2; // Review
+      intervalMinutes = 10; // 10 minutes
+      nextDue.setMinutes(now.getMinutes() + 10);
+      newStatus = 1; // still in (re)learning
       break;
     case 'good':
-      intervalMinutes = 4 * 24 * 60; // 4 days
-      nextDue.setDate(now.getDate() + 4);
+      intervalMinutes = 24 * 60; // 1 day
+      nextDue.setDate(now.getDate() + 1);
       newStatus = 2; // Review
       break;
   }
@@ -69,8 +70,8 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
     .update({
       due: nextDue.toISOString(),
       state: newStatus,
-      reps: 0, // Ideally increment, but simple update for now
-      // In a real FSRS, we would update stability/difficulty here
+      reps: grade === 'forgot' ? 0 : undefined, // leave reps untouched except reset on forgot
+      // Note: a full FSRS should update stability/difficulty; kept minimal here
     })
     .eq('id', cardId)
     .eq('user_id', user.id);

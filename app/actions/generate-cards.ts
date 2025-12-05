@@ -155,13 +155,14 @@ export async function generateCards(input: string, context?: GenerateContext, li
   "example": "简短例句（10词以内，适合听写）",
   "short_usage": "常用搭配（3-6词）",
   "shadow_sentence": "跟读句子（12-15词，与${goal}相关）",
+  "shadow_sentence_translation": "上述跟读句子的中文翻译",
   "root_analysis": "词根词源"
 }]
 
 只输出JSON数组，不要任何其他文字。`;
 
     const response = await client.chat.completions.create({
-      model: 'deepseek-chat',
+      model: 'DeepSeek-V3.2',
       messages: [
         {
           role: 'system',

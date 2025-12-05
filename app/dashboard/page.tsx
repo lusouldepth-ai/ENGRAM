@@ -1,6 +1,8 @@
 import { CommandBar } from "@/components/creator/CommandBar";
 import ReviewSection from "@/components/reviewer/ReviewSection";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { Database } from "@/lib/supabase/types";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/landing/Navbar";
 import { TranslatedText } from "@/components/ui/TranslatedText";
@@ -9,7 +11,8 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = createClient();
-
+  // Debug (safe): log whether service role key is set (no value logged)
+  console.log("SERVICE_ROLE_KEY_SET", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -17,37 +20,52 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Try to get profile
+  // Try to get profile (maybeSingle avoids throwing on 0 rows)
   let { data: profile } = await supabase
     .from("profiles")
-    .select("tier, accent_preference, shadow_rate")
+    .select("tier, accent_preference")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+  console.log("PROFILE_FROM_ANON", profile);
 
-  // If profile doesn't exist, create one with defaults
-  if (!profile) {
-    console.log("⚠️ [Dashboard] Profile missing, creating one...");
-    const { error: insertError } = await supabase
-      .from('profiles')
-      .insert({ 
-        id: user.id, 
-        email: user.email,
-        tier: 'free',
-        accent_preference: 'US'
-      });
-    
-    if (!insertError) {
-      // Fetch the newly created profile
-      const { data: newProfile } = await supabase
+  // Fallback: use service role to read/create if RLS hides the row
+  if (!profile && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const admin = createAdminClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: adminProfile, error: adminErr } = await admin
+      .from("profiles")
+      .select("tier, accent_preference")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (adminErr) {
+      console.error("ADMIN_PROFILE_FETCH_ERROR", adminErr);
+    }
+
+    profile = adminProfile || null;
+    console.log("PROFILE_FROM_ADMIN", profile);
+
+    if (!profile) {
+      // Upsert with service role to avoid duplicate-key conflicts
+      const { data: upserted, error: upsertErr } = await admin
         .from("profiles")
-        .select("tier, accent_preference, shadow_rate")
-        .eq("id", user.id)
-        .single();
-      profile = newProfile;
-    } else {
-      console.error("Failed to create profile:", insertError);
+        .upsert(
+          { id: user.id, email: user.email, tier: 'free', accent_preference: 'US' },
+          { onConflict: 'id' }
+        )
+        .select("tier, accent_preference")
+        .maybeSingle();
+      if (upsertErr) {
+        console.error("ADMIN_PROFILE_UPSERT_ERROR", upsertErr);
+      }
+      profile = upserted || null;
+      console.log("PROFILE_AFTER_ADMIN_UPSERT", profile);
     }
   }
+
+  console.log("PROFILE_FINAL", profile);
 
   console.log("Dashboard Profile Fetch:", profile);
 

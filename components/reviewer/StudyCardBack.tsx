@@ -5,6 +5,7 @@ import { Database } from "@/lib/supabase/types";
 
 type Card = Database["public"]["Tables"]["cards"]["Row"] & {
     audio_url?: string | null;
+    shadow_sentence_translation?: string | null; // optional translation for shadow sentence
 };
 
 interface StudyCardBackProps {
@@ -25,6 +26,8 @@ interface StudyCardBackProps {
     isShadowSpeaking: boolean;
     handleRecordToggle: () => void;
     isRecording: boolean;
+    handlePlayRecording: () => void;
+    recordedUrl: string | null;
     handleShuffle: () => void;
     isShuffling: boolean;
     // Rating Props
@@ -48,6 +51,8 @@ export function StudyCardBack({
     isShadowSpeaking,
     handleRecordToggle,
     isRecording,
+    handlePlayRecording,
+    recordedUrl,
     handleShuffle,
     isShuffling,
     onRate,
@@ -64,8 +69,8 @@ export function StudyCardBack({
 
     const contextTag = getContextTag();
 
-    // Simple translation for shadow sentence (placeholder - in real app, would come from AI)
-    const shadowTranslation = "在现代快速发展的技术时代，智能手机已经变得无处不在。";
+    // Use provided translation for shadow sentence if available
+    const shadowTranslation = (card.shadow_sentence_translation || "").trim();
 
     return (
         <div
@@ -155,7 +160,7 @@ export function StudyCardBack({
 
                         {/* Translation */}
                         <p className="text-sm text-neutral-400 mt-2 border-t border-neutral-200 pt-2">
-                            {shadowTranslation}
+                            {shadowTranslation || "（该句暂缺翻译）"}
                         </p>
 
                         {/* Controls */}
@@ -194,21 +199,31 @@ export function StudyCardBack({
                             </div>
 
                             {/* Shadow Recording Button */}
-                            <button
-                                onClick={handleRecordToggle}
-                                disabled={!isPro}
-                                className={cn(
-                                    "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all",
-                                    isRecording
-                                        ? "border-red-500 text-red-600 bg-red-50"
-                                        : isPro
-                                            ? "border-neutral-300 text-neutral-600 hover:border-neutral-400"
-                                            : "border-neutral-200 text-neutral-300 cursor-not-allowed"
-                                )}
-                            >
-                                <Mic size={16} />
-                                <span className="text-xs font-medium">Shadow</span>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleRecordToggle}
+                                    disabled={!isPro}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all",
+                                        isRecording
+                                            ? "border-red-500 text-red-600 bg-red-50"
+                                            : isPro
+                                                ? "border-neutral-300 text-neutral-600 hover:border-neutral-400"
+                                                : "border-neutral-200 text-neutral-300 cursor-not-allowed"
+                                    )}
+                                >
+                                    <Mic size={16} />
+                                    <span className="text-xs font-medium">{isRecording ? "Recording..." : "Record"}</span>
+                                </button>
+                                <button
+                                    onClick={handlePlayRecording}
+                                    disabled={!recordedUrl}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-300 text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed hover:border-neutral-400"
+                                >
+                                    <Volume2 size={16} />
+                                    <span className="text-xs font-medium">My Recording</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

@@ -201,9 +201,15 @@ export default function OnboardingPage() {
         }
 
         const cardsToSave = generatedCards.filter((_, i) => selectedCardIndices.has(i));
-        const result = await saveStarterCards(cardsToSave);
+        let result;
 
-        if (result.success) {
+        try {
+            result = await saveStarterCards(cardsToSave);
+        } catch (err) {
+            console.error("保存入门词汇时出错", err);
+        }
+
+        if (result?.success) {
             router.push('/dashboard');
         } else {
             alert("保存失败，请重试");

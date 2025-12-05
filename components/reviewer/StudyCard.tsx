@@ -37,18 +37,21 @@ export function StudyCard({
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [shadowSentence, setShadowSentence] = useState(card.shadow_sentence || '');
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const accent: 'us' | 'uk' = accentPreference?.toLowerCase() === 'uk' ? 'uk' : 'us';
+  // 更宽松地识别口音，兼容 "UK" / "British (UK)" / "british"
+  const normalizedAccentPref = (accentPreference || '').toLowerCase();
+  const accent: 'us' | 'uk' = normalizedAccentPref.includes('uk') || normalizedAccentPref.includes('british') ? 'uk' : 'us';
   const isPro = (userTier || '').trim().toLowerCase() === 'pro';
 
   const [isShuffling, startShuffle] = useTransition();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isShadowSpeaking, setIsShadowSpeaking] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
-  const playedCardRef = useRef<string | null>(null);
+  const recordedAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const router = useRouter();
   const rawTarget = (card.front || '').trim();
@@ -58,15 +61,6 @@ export function StudyCard({
   // Debug: Log userTier and accentPreference
   console.log('🎴 [StudyCard] userTier:', userTier, '| isPro:', isPro);
   console.log('🎴 [StudyCard] accentPreference:', accentPreference, '| accent:', accent);
-
-  // Auto-play on card load - only once per card
-  useEffect(() => {
-    if (card.id !== playedCardRef.current) {
-      playedCardRef.current = card.id;
-      handlePlay();
-    }
-    return () => stopAudio();
-  }, [card.id]);
 
   // Reset state on card change
   useEffect(() => {
@@ -83,6 +77,11 @@ export function StudyCard({
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current = null;
+    }
+    if (recordedAudioRef.current) {
+      recordedAudioRef.current.pause();
+      recordedAudioRef.current.currentTime = 0;
+      recordedAudioRef.current = null;
     }
     
     // Stop global TTS if playing
@@ -170,6 +169,7 @@ export function StudyCard({
           const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
           const url = URL.createObjectURL(blob);
           console.log('Recording saved:', url);
+          setRecordedUrl(url);
           stream.getTracks().forEach(track => track.stop());
         };
 
@@ -208,9 +208,8 @@ export function StudyCard({
       onResultChange({ correct, input: userInput });
     }
 
-    if (correct) {
-      setTimeout(() => onFlip(true), 500);
-    }
+    // 无论对错都翻转，错误时通过 DiffResult 高亮差异
+    setTimeout(() => onFlip(true), 200);
   };
 
   const handleReveal = () => {
@@ -226,6 +225,14 @@ export function StudyCard({
 
   const handleSelection = () => {
     // Quick add functionality placeholder
+  };
+
+  const handlePlayRecording = () => {
+    if (!recordedUrl) return;
+    stopAudio();
+    const audio = new Audio(recordedUrl);
+    recordedAudioRef.current = audio;
+    audio.play();
   };
 
   return (
@@ -276,6 +283,8 @@ export function StudyCard({
             isShadowSpeaking={isShadowSpeaking}
             handleRecordToggle={handleRecordToggle}
             isRecording={isRecording}
+          handlePlayRecording={handlePlayRecording}
+          recordedUrl={recordedUrl}
             handleShuffle={handleShuffle}
             isShuffling={isShuffling}
             onRate={handleRating}
