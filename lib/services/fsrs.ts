@@ -118,17 +118,48 @@ export function shouldMarkAsMastered(
 export function getScheduleDescription(scheduledDays: number): string {
     if (scheduledDays < 1) {
         const minutes = Math.round(scheduledDays * 24 * 60);
-        return `${minutes} 分钟后`;
+        if (minutes < 1) return '1m';
+        return `${minutes}m`;
     } else if (scheduledDays < 7) {
-        return `${Math.round(scheduledDays)} 天后`;
+        return `${Math.round(scheduledDays)}d`;
     } else if (scheduledDays < 30) {
         const weeks = Math.round(scheduledDays / 7);
-        return `${weeks} 周后`;
+        return `${weeks}w`;
     } else if (scheduledDays < 365) {
         const months = Math.round(scheduledDays / 30);
-        return `${months} 个月后`;
+        return `${months}mo`;
     } else {
         const years = Math.round(scheduledDays / 365);
-        return `${years} 年后`;
+        return `${years}y`;
     }
+}
+
+/**
+ * 预览所有评分选项的下次复习间隔
+ * 用于在 UI 上动态显示每个按钮对应的时间
+ */
+export function previewAllRatings(currentCard: {
+    due: string;
+    stability: number;
+    difficulty: number;
+    reps: number;
+    state: number;
+}): {
+    forgot: { scheduledDays: number; display: string };
+    hard: { scheduledDays: number; display: string };
+    good: { scheduledDays: number; display: string };
+    easy: { scheduledDays: number; display: string };
+} {
+    const ratings: AppRating[] = ['forgot', 'hard', 'good', 'easy'];
+    const result: any = {};
+
+    for (const rating of ratings) {
+        const preview = processReview(currentCard, rating);
+        result[rating] = {
+            scheduledDays: preview.scheduledDays,
+            display: getScheduleDescription(preview.scheduledDays),
+        };
+    }
+
+    return result;
 }

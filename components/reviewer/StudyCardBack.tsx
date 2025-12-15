@@ -34,6 +34,13 @@ interface StudyCardBackProps {
     onRate: (grade: 'forgot' | 'hard' | 'good' | 'easy') => void;
     // Translation prop for shadow sentence
     shadowTranslation: string;
+    // Dynamic interval previews from FSRS
+    intervalPreviews?: {
+        forgot: { display: string };
+        hard: { display: string };
+        good: { display: string };
+        easy: { display: string };
+    } | null;
 }
 
 export function StudyCardBack({
@@ -59,6 +66,7 @@ export function StudyCardBack({
     isShuffling,
     onRate,
     shadowTranslation,
+    intervalPreviews,
 }: StudyCardBackProps) {
     // Generate context tag based on shadow sentence content
     const getContextTag = () => {
@@ -243,28 +251,28 @@ export function StudyCardBack({
                         className="flex flex-col items-center p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
                     >
                         <span className="text-xs font-bold uppercase mb-1">Forgot</span>
-                        <span className="text-[10px] text-red-400">1m</span>
+                        <span className="text-[10px] text-red-400">{intervalPreviews?.forgot?.display || '1m'}</span>
                     </button>
                     <button
                         onClick={() => onRate('hard')}
                         className="flex flex-col items-center p-2 rounded-lg hover:bg-neutral-100 text-neutral-600 transition-colors"
                     >
                         <span className="text-xs font-bold uppercase mb-1">Hard</span>
-                        <span className="text-[10px] text-neutral-400">2d</span>
+                        <span className="text-[10px] text-neutral-400">{intervalPreviews?.hard?.display || '10m'}</span>
                     </button>
                     <button
                         onClick={() => onRate('good')}
                         className="flex flex-col items-center p-2 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
                     >
                         <span className="text-xs font-bold uppercase mb-1">Good</span>
-                        <span className="text-[10px] text-green-400">4d</span>
+                        <span className="text-[10px] text-green-400">{intervalPreviews?.good?.display || '1d'}</span>
                     </button>
                     <button
                         onClick={() => onRate('easy')}
                         className="flex flex-col items-center p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
                     >
                         <span className="text-xs font-bold uppercase mb-1">Easy</span>
-                        <span className="text-[10px] text-blue-400">7d</span>
+                        <span className="text-[10px] text-blue-400">{intervalPreviews?.easy?.display || '4d'}</span>
                     </button>
                 </div>
             </div>

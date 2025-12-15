@@ -5,12 +5,20 @@ import { motion } from 'framer-motion';
 import { Database } from '@/lib/supabase/types';
 import { useRouter } from 'next/navigation';
 import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
+import { getIntervalPreview } from '@/app/actions/review-actions';
 import { StudyCardFront } from './StudyCardFront';
 import { StudyCardBack } from './StudyCardBack';
 
 type Card = Database['public']['Tables']['cards']['Row'] & {
   audio_url?: string | null;
 };
+
+type IntervalPreviews = {
+  forgot: { display: string };
+  hard: { display: string };
+  good: { display: string };
+  easy: { display: string };
+} | null;
 
 interface StudyCardProps {
   card: Card;
@@ -38,6 +46,7 @@ export function StudyCard({
   const [shadowSentence, setShadowSentence] = useState(card.shadow_sentence || '');
   const [shadowTranslation, setShadowTranslation] = useState(card.shadow_sentence_translation || '');
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [intervalPreviews, setIntervalPreviews] = useState<IntervalPreviews>(null);
   // 更宽松地识别口音，兼容 "UK" / "British (UK)" / "british"
   const normalizedAccentPref = (accentPreference || '').toLowerCase();
   const accent: 'us' | 'uk' = normalizedAccentPref.includes('uk') || normalizedAccentPref.includes('british') ? 'uk' : 'us';
@@ -63,14 +72,56 @@ export function StudyCard({
   console.log('🎴 [StudyCard] userTier:', userTier, '| isPro:', isPro);
   console.log('🎴 [StudyCard] accentPreference:', accentPreference, '| accent:', accent);
 
-  // Reset state on card change
+
+  // Reset state on card change and fetch interval previews
   useEffect(() => {
     setUserInput('');
     setIsCorrect(null);
     setShadowSentence(card.shadow_sentence || '');
+    setShadowTranslation(card.shadow_sentence_translation || '');
     setPlaybackSpeed(1.0);
+    setIntervalPreviews(null);
     stopAudio();
+
+    // 获取 FSRS 预览数据
+    async function fetchPreviews() {
+      const previews = await getIntervalPreview(card.id);
+      if (previews) {
+        setIntervalPreviews(previews);
+      }
+    }
+    fetchPreviews();
   }, [card]);
+
+  // 键盘快捷键：1/2/3/4 对应 Forgot/Hard/Good/Easy
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 只在卡片翻转后（显示背面）才响应快捷键
+      if (!isFlipped) return;
+
+      // 忽略在输入框中的按键
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      switch (e.key) {
+        case '1':
+          onRate?.('forgot');
+          break;
+        case '2':
+          onRate?.('hard');
+          break;
+        case '3':
+          onRate?.('good');
+          break;
+        case '4':
+          onRate?.('easy');
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFlipped, onRate]);
 
   const stopAudio = () => {
     // Stop HTML Audio element
@@ -306,6 +357,7 @@ export function StudyCard({
             isShuffling={isShuffling}
             onRate={handleRating}
             shadowTranslation={shadowTranslation}
+            intervalPreviews={intervalPreviews}
           />
         </motion.div>
       </div>

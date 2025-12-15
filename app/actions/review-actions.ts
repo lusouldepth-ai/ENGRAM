@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { processReview, shouldMarkAsMastered, type AppRating } from "@/lib/services/fsrs";
+import { processReview, shouldMarkAsMastered, previewAllRatings, type AppRating } from "@/lib/services/fsrs";
 
 export async function getDueCards() {
   const supabase = createClient();
@@ -30,10 +30,33 @@ export async function getDueCards() {
 }
 
 /**
+ * 获取卡片的四个评分选项的预览间隔
+ */
+export async function getIntervalPreview(cardId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: card, error } = await supabase
+    .from('cards')
+    .select('due, stability, difficulty, reps, state')
+    .eq('id', cardId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !card) {
+    return null;
+  }
+
+  return previewAllRatings(card);
+}
+
+/**
  * 处理卡片复习
  * 使用完整 FSRS-5 算法计算下次复习时间
  */
-export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'good') {
+export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'good' | 'easy') {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -87,12 +110,13 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
   }
 
   // 5. 记录复习日志
+  const gradeValue = grade === 'forgot' ? 1 : grade === 'hard' ? 2 : grade === 'good' ? 3 : 4;
   const { error: logError } = await supabase
     .from('study_logs')
     .insert({
       user_id: user.id,
       card_id: cardId,
-      grade: grade === 'forgot' ? 1 : grade === 'hard' ? 2 : 3,
+      grade: gradeValue,
       reviewed_at: new Date().toISOString()
     });
 
