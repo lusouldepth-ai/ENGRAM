@@ -24,12 +24,9 @@ export function Navbar({ user }: NavbarProps) {
 
       <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
         <nav className="flex items-center gap-8">
-          <Link href="/dashboard" className="hover:text-braun-text transition-colors">英语角</Link>
-          <Link href="/learning-center" className="hover:text-braun-text transition-colors">学习中心</Link>
+          <Link href="/dashboard" className="hover:text-braun-text transition-colors">学习中心</Link>
+          <Link href="/learning-center" className="hover:text-braun-text transition-colors">学习进度</Link>
           <Link href="/pricing" className="hover:text-braun-text transition-colors">{t('nav.pricing')}</Link>
-          {user && (
-            <Link href="/settings" className="hover:text-braun-text transition-colors">Settings</Link>
-          )}
         </nav>
         <LanguageToggle />
 

@@ -121,7 +121,7 @@ export async function generateCards(input: string, context?: GenerateContext, li
 
     // 获取 CEFR 词汇指南
     const cefrGuide = CEFR_VOCABULARY_GUIDE[level] || CEFR_VOCABULARY_GUIDE['intermediate'];
-    
+
     const systemPrompt = `你是一位专业的英语词汇教育专家，精通 CEFR 标准。
 
 ## 学习者档案
@@ -162,7 +162,7 @@ export async function generateCards(input: string, context?: GenerateContext, li
 只输出JSON数组，不要任何其他文字。`;
 
     const response = await client.chat.completions.create({
-      model: 'DeepSeek-V3.2',
+      model: 'deepseek-chat',
       messages: [
         {
           role: 'system',

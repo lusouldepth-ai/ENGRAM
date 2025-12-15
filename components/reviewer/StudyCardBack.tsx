@@ -204,16 +204,19 @@ export function StudyCardBack({
                                     onClick={handleRecordToggle}
                                     disabled={!isPro}
                                     className={cn(
-                                        "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all",
+                                        "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all relative",
                                         isRecording
-                                            ? "border-red-500 text-red-600 bg-red-50"
+                                            ? "border-red-500 text-red-600 bg-red-50 animate-pulse"
                                             : isPro
                                                 ? "border-neutral-300 text-neutral-600 hover:border-neutral-400"
                                                 : "border-neutral-200 text-neutral-300 cursor-not-allowed"
                                     )}
                                 >
-                                    <Mic size={16} />
-                                    <span className="text-xs font-medium">{isRecording ? "Recording..." : "Record"}</span>
+                                    {isRecording && (
+                                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping" />
+                                    )}
+                                    <Mic size={16} className={isRecording ? "text-red-600" : ""} />
+                                    <span className="text-xs font-medium">{isRecording ? "录音中..." : "录音"}</span>
                                 </button>
                                 <button
                                     onClick={handlePlayRecording}
@@ -221,7 +224,7 @@ export function StudyCardBack({
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-300 text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed hover:border-neutral-400"
                                 >
                                     <Volume2 size={16} />
-                                    <span className="text-xs font-medium">My Recording</span>
+                                    <span className="text-xs font-medium">播放录音</span>
                                 </button>
                             </div>
                         </div>

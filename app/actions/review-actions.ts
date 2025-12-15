@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { processReview, shouldMarkAsMastered, type AppRating } from "@/lib/services/fsrs";
 
 export async function getDueCards() {
   const supabase = createClient();
@@ -10,11 +11,12 @@ export async function getDueCards() {
   if (!user) return [];
 
   // Fetch cards where due <= now
-  // We also might want to limit the number of cards per session (e.g. 20)
+  // Limit to 20 cards per session
   const { data: cards, error } = await supabase
     .from('cards')
     .select('*')
     .eq('user_id', user.id)
+    .eq('is_mastered', false) // 不显示已掌握的卡片
     .lte('due', new Date().toISOString())
     .order('due', { ascending: true })
     .limit(20);
@@ -27,51 +29,54 @@ export async function getDueCards() {
   return cards || [];
 }
 
+/**
+ * 处理卡片复习
+ * 使用完整 FSRS-5 算法计算下次复习时间
+ */
 export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'good') {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { success: false, error: "Unauthorized" };
 
-  // 1. Calculate new SRS parameters (Simplified FSRS-like logic per PRD)
-  // Adjusted to align closer with Anki-style initial steps:
-  // Forgot -> 1 minute
-  // Hard   -> 10 minutes
-  // Good   -> 1 day
-  // Easy   -> 4 days (mapped to "good" upstream)
+  // 1. 获取当前卡片状态
+  const { data: currentCard, error: fetchError } = await supabase
+    .from('cards')
+    .select('due, stability, difficulty, reps, state')
+    .eq('id', cardId)
+    .eq('user_id', user.id)
+    .single();
 
-  let intervalMinutes = 0;
-  let newStatus = 1; // Learning/Review
-
-  const now = new Date();
-  const nextDue = new Date(now);
-
-  switch (grade) {
-    case 'forgot':
-      intervalMinutes = 1; // 1 minute
-      nextDue.setMinutes(now.getMinutes() + 1);
-      newStatus = 1; // Reset to learning/re-learning
-      break;
-    case 'hard':
-      intervalMinutes = 10; // 10 minutes
-      nextDue.setMinutes(now.getMinutes() + 10);
-      newStatus = 1; // still in (re)learning
-      break;
-    case 'good':
-      intervalMinutes = 24 * 60; // 1 day
-      nextDue.setDate(now.getDate() + 1);
-      newStatus = 2; // Review
-      break;
+  if (fetchError || !currentCard) {
+    console.error("Error fetching card:", fetchError);
+    return { success: false, error: "Card not found" };
   }
 
-  // 2. Update Card
+  // 2. 使用 FSRS 算法计算新状态
+  const rating: AppRating = grade;
+  const newState = processReview(currentCard, rating);
+
+  console.log(`📊 [FSRS] Card ${cardId}: ${grade} → 下次复习: ${newState.scheduledDays} 天后`);
+  console.log(`   stability: ${currentCard.stability} → ${newState.stability.toFixed(2)}`);
+  console.log(`   difficulty: ${currentCard.difficulty} → ${newState.difficulty.toFixed(2)}`);
+
+  // 3. 判断是否应该标记为已掌握
+  const isMastered = shouldMarkAsMastered(newState.stability, newState.reps, rating);
+
+  if (isMastered) {
+    console.log(`🎉 [FSRS] Card ${cardId} 已掌握！`);
+  }
+
+  // 4. 更新卡片
   const { error: updateError } = await supabase
     .from('cards')
     .update({
-      due: nextDue.toISOString(),
-      state: newStatus,
-      reps: grade === 'forgot' ? 0 : undefined, // leave reps untouched except reset on forgot
-      // Note: a full FSRS should update stability/difficulty; kept minimal here
+      due: newState.due,
+      stability: newState.stability,
+      difficulty: newState.difficulty,
+      reps: newState.reps,
+      state: newState.state,
+      is_mastered: isMastered,
     })
     .eq('id', cardId)
     .eq('user_id', user.id);
@@ -81,14 +86,14 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
     return { success: false, error: updateError.message };
   }
 
-  // 3. Log Review
+  // 5. 记录复习日志
   const { error: logError } = await supabase
     .from('study_logs')
     .insert({
       user_id: user.id,
       card_id: cardId,
       grade: grade === 'forgot' ? 1 : grade === 'hard' ? 2 : 3,
-      reviewed_at: now.toISOString()
+      reviewed_at: new Date().toISOString()
     });
 
   if (logError) {
@@ -96,6 +101,11 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
   }
 
   revalidatePath('/dashboard');
-  return { success: true };
-}
+  revalidatePath('/review');
 
+  return {
+    success: true,
+    nextReview: newState.scheduledDays,
+    isMastered
+  };
+}
