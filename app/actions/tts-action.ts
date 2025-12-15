@@ -8,15 +8,15 @@ type SpeechResult =
     | { success: true; audioData: string; mimeType: 'audio/raw' | 'audio/mpeg' }
     | { success: false; error: string };
 
-const ELEVEN_DEFAULT_VOICE_US = '21m00Tcm4TlvDq8ikWAM'; // Sarah (美式)
-const ELEVEN_DEFAULT_VOICE_UK = 'TxGEqnHWrfWFTfGW9XjX'; // Bella (英式)
+const ELEVEN_DEFAULT_VOICE_US = 'IRHApOXLvnW57QJPQH2P'; // 用户选择的美式声音
+const ELEVEN_DEFAULT_VOICE_UK = '19STyYD15bswVz51nqLf'; // 用户选择的英式声音
 
 async function generateSpeechWithGemini(text: string, accent: Accent): Promise<SpeechResult> {
     const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
 
     console.log("🔊 [TTS:Gemini] Generating speech for:", text.substring(0, 30));
     console.log("🔊 [TTS:Gemini] API Key exists:", !!apiKey, "Length:", apiKey.length);
-    
+
     if (!apiKey) {
         console.error("🔊 [TTS:Gemini] API Key is missing!");
         return { success: false, error: "API Key is missing" };
@@ -25,7 +25,7 @@ async function generateSpeechWithGemini(text: string, accent: Accent): Promise<S
     try {
         const ai = new GoogleGenAI({ apiKey });
         const voiceName = accent === 'US' ? 'Kore' : 'Puck';
-        
+
         console.log("🔊 [TTS:Gemini] Using voice:", voiceName, "for accent:", accent);
 
         const response = await ai.models.generateContent({
@@ -44,10 +44,10 @@ async function generateSpeechWithGemini(text: string, accent: Accent): Promise<S
         });
 
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        
+
         console.log("🔊 [TTS:Gemini] Audio data exists:", !!base64Audio);
         console.log("🔊 [TTS:Gemini] Audio data length:", base64Audio?.length || 0);
-        
+
         if (base64Audio) {
             // Gemini 返回 raw PCM
             return { success: true, audioData: base64Audio, mimeType: 'audio/raw' };
@@ -107,12 +107,22 @@ async function generateSpeechWithElevenLabs(text: string, accent: Accent): Promi
 }
 
 export async function generateSpeech(text: string, accent: Accent = 'US'): Promise<SpeechResult> {
+    console.log("🔊 [TTS] ========================================");
+    console.log("🔊 [TTS] Accent:", accent);
+    console.log("🔊 [TTS] ElevenLabs API Key configured:", !!process.env.ELEVENLABS_API_KEY);
+
     // 优先使用 ElevenLabs（若配置），否则回落 Gemini
     if (process.env.ELEVENLABS_API_KEY) {
+        console.log("🔊 [TTS] >>> 使用 ElevenLabs <<<");
         const eleven = await generateSpeechWithElevenLabs(text, accent);
-        if (eleven.success) return eleven;
+        if (eleven.success) {
+            console.log("🔊 [TTS] ElevenLabs 成功！");
+            return eleven;
+        }
         console.warn("🔊 [TTS] ElevenLabs failed, fallback to Gemini:", eleven.error);
     }
+
+    console.log("🔊 [TTS] >>> 使用 Gemini <<<");
     return generateSpeechWithGemini(text, accent);
 }
 

@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { createClient } from "@/lib/supabase/client"
-import { LogOut, User } from "lucide-react"
+import { LogOut, User, Crown } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -56,6 +56,7 @@ export function UserNav() {
     : user.email?.slice(0, 2).toUpperCase() || "U"
 
   const displayName = profile?.display_name || user.email?.split('@')[0] || "User"
+  const isPro = profile?.tier === 'pro'
 
   return (
     <DropdownMenu>
@@ -67,12 +68,26 @@ export function UserNav() {
               {initials}
             </AvatarFallback>
           </Avatar>
+          {/* Pro Badge */}
+          {isPro && (
+            <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-4 h-4 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full border-2 border-white shadow-sm">
+              <Crown size={10} className="text-white" strokeWidth={2.5} />
+            </span>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 bg-[#FAFAF9] border-[#E5E5E5] shadow-lg rounded-xl" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-bold leading-none text-[#1A1A1A]">{displayName}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold leading-none text-[#1A1A1A]">{displayName}</p>
+              {isPro && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold rounded-full">
+                  <Crown size={10} />
+                  PRO
+                </span>
+              )}
+            </div>
             <p className="text-xs leading-none text-gray-500">
               {user.email}
             </p>
@@ -83,17 +98,16 @@ export function UserNav() {
           <Link href="/settings">
             <DropdownMenuItem className="cursor-pointer text-[#1A1A1A] hover:bg-[#F4F4F0] focus:bg-[#F4F4F0]">
               <User className="mr-2 h-4 w-4 text-[#737373]" />
-              <span>Profile Settings</span>
+              <span>账户设置</span>
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>
         <DropdownMenuSeparator className="bg-[#E5E5E5]" />
         <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-[#1A1A1A] hover:bg-[#F4F4F0] focus:bg-[#F4F4F0]">
           <LogOut className="mr-2 h-4 w-4 text-[#737373]" />
-          <span>Log out</span>
+          <span>退出登录</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
-

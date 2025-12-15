@@ -32,6 +32,8 @@ interface StudyCardBackProps {
     isShuffling: boolean;
     // Rating Props
     onRate: (grade: 'forgot' | 'hard' | 'good' | 'easy') => void;
+    // Translation prop for shadow sentence
+    shadowTranslation: string;
 }
 
 export function StudyCardBack({
@@ -56,6 +58,7 @@ export function StudyCardBack({
     handleShuffle,
     isShuffling,
     onRate,
+    shadowTranslation,
 }: StudyCardBackProps) {
     // Generate context tag based on shadow sentence content
     const getContextTag = () => {
@@ -69,8 +72,8 @@ export function StudyCardBack({
 
     const contextTag = getContextTag();
 
-    // Use provided translation for shadow sentence if available
-    const shadowTranslation = (card.shadow_sentence_translation || "").trim();
+    // Use the prop for shadow translation
+    const displayTranslation = shadowTranslation || (card.shadow_sentence_translation || "").trim();
 
     return (
         <div
@@ -160,7 +163,7 @@ export function StudyCardBack({
 
                         {/* Translation */}
                         <p className="text-sm text-neutral-400 mt-2 border-t border-neutral-200 pt-2">
-                            {shadowTranslation || "（该句暂缺翻译）"}
+                            {displayTranslation || "（该句暂缺翻译）"}
                         </p>
 
                         {/* Controls */}

@@ -36,6 +36,7 @@ export function StudyCard({
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [shadowSentence, setShadowSentence] = useState(card.shadow_sentence || '');
+  const [shadowTranslation, setShadowTranslation] = useState(card.shadow_sentence_translation || '');
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   // 更宽松地识别口音，兼容 "UK" / "British (UK)" / "british"
   const normalizedAccentPref = (accentPreference || '').toLowerCase();
@@ -83,12 +84,12 @@ export function StudyCard({
       recordedAudioRef.current.currentTime = 0;
       recordedAudioRef.current = null;
     }
-    
+
     // Stop global TTS if playing
     if (typeof window !== 'undefined') {
-        // We might want to expose a stop method from ttsService if needed
-        // For now, browser synthesis cancel is handled inside playHighQualitySpeech
-        window.speechSynthesis.cancel();
+      // We might want to expose a stop method from ttsService if needed
+      // For now, browser synthesis cancel is handled inside playHighQualitySpeech
+      window.speechSynthesis.cancel();
     }
 
     setIsSpeaking(false);
@@ -144,39 +145,52 @@ export function StudyCard({
   };
 
   const handleRecordToggle = async () => {
+    console.log('🎤 [Recording] handleRecordToggle called');
+    console.log('🎤 [Recording] isPro:', isPro, '| userTier:', userTier);
+
     if (!isPro) {
+      console.log('🎤 [Recording] User is not Pro, redirecting to pricing');
       router.push('/pricing');
       return;
     }
 
     if (isRecording) {
+      console.log('🎤 [Recording] Stopping recording...');
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
     } else {
+      console.log('🎤 [Recording] Starting recording...');
       try {
+        console.log('🎤 [Recording] Requesting microphone permission...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('🎤 [Recording] Microphone permission granted!');
+
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
         recordedChunksRef.current = [];
 
         mediaRecorder.ondataavailable = (e) => {
+          console.log('🎤 [Recording] Data available, size:', e.data.size);
           if (e.data.size > 0) {
             recordedChunksRef.current.push(e.data);
           }
         };
 
         mediaRecorder.onstop = () => {
+          console.log('🎤 [Recording] Recording stopped, creating blob...');
           const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
           const url = URL.createObjectURL(blob);
-          console.log('Recording saved:', url);
+          console.log('🎤 [Recording] Recording saved:', url);
           setRecordedUrl(url);
           stream.getTracks().forEach(track => track.stop());
         };
 
         mediaRecorder.start();
+        console.log('🎤 [Recording] Recording started!');
         setIsRecording(true);
       } catch (error) {
-        console.error('Error accessing microphone:', error);
+        console.error('🎤 [Recording] Error accessing microphone:', error);
+        alert('无法访问麦克风，请检查浏览器权限设置');
       }
     }
   };
@@ -191,6 +205,9 @@ export function StudyCard({
       const result = await regenerateShadowSentence(card.id);
       if (result.success && result.sentence) {
         setShadowSentence(result.sentence);
+        if (result.translation) {
+          setShadowTranslation(result.translation);
+        }
       }
     });
   };
@@ -283,11 +300,12 @@ export function StudyCard({
             isShadowSpeaking={isShadowSpeaking}
             handleRecordToggle={handleRecordToggle}
             isRecording={isRecording}
-          handlePlayRecording={handlePlayRecording}
-          recordedUrl={recordedUrl}
+            handlePlayRecording={handlePlayRecording}
+            recordedUrl={recordedUrl}
             handleShuffle={handleShuffle}
             isShuffling={isShuffling}
             onRate={handleRating}
+            shadowTranslation={shadowTranslation}
           />
         </motion.div>
       </div>
