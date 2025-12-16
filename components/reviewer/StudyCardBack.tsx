@@ -41,6 +41,8 @@ interface StudyCardBackProps {
         good: { display: string };
         easy: { display: string };
     } | null;
+    // Fixed translation (auto-corrected)
+    fixedTranslation?: string | null;
 }
 
 export function StudyCardBack({
@@ -67,6 +69,7 @@ export function StudyCardBack({
     onRate,
     shadowTranslation,
     intervalPreviews,
+    fixedTranslation,
 }: StudyCardBackProps) {
     // Generate context tag based on shadow sentence content
     const getContextTag = () => {
@@ -113,7 +116,7 @@ export function StudyCardBack({
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-lg text-neutral-700">{card.translation}</p>
+                        <p className="text-lg text-neutral-700">{fixedTranslation || card.translation}</p>
                     </div>
                 </div>
             </div>

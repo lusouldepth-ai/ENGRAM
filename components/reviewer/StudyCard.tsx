@@ -6,6 +6,7 @@ import { Database } from '@/lib/supabase/types';
 import { useRouter } from 'next/navigation';
 import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
 import { getIntervalPreview } from '@/app/actions/review-actions';
+import { checkCardTranslation, fixCardTranslation } from '@/app/actions/fix-translation-action';
 import { StudyCardFront } from './StudyCardFront';
 import { StudyCardBack } from './StudyCardBack';
 
@@ -47,6 +48,7 @@ export function StudyCard({
   const [shadowTranslation, setShadowTranslation] = useState(card.shadow_sentence_translation || '');
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [intervalPreviews, setIntervalPreviews] = useState<IntervalPreviews>(null);
+  const [fixedTranslation, setFixedTranslation] = useState<string | null>(null);
   // 更宽松地识别口音，兼容 "UK" / "British (UK)" / "british"
   const normalizedAccentPref = (accentPreference || '').toLowerCase();
   const accent: 'us' | 'uk' = normalizedAccentPref.includes('uk') || normalizedAccentPref.includes('british') ? 'uk' : 'us';
@@ -81,6 +83,7 @@ export function StudyCard({
     setShadowTranslation(card.shadow_sentence_translation || '');
     setPlaybackSpeed(1.0);
     setIntervalPreviews(null);
+    setFixedTranslation(null);
     stopAudio();
 
     // 获取 FSRS 预览数据
@@ -91,6 +94,24 @@ export function StudyCard({
       }
     }
     fetchPreviews();
+
+    // 检测并修复翻译语言
+    async function checkAndFixTranslation() {
+      try {
+        const checkResult = await checkCardTranslation(card.id);
+        if (checkResult.needsFix) {
+          console.log(`🔧 [StudyCard] Fixing translation for "${card.front}"...`);
+          const fixResult = await fixCardTranslation(card.id);
+          if (fixResult.success && fixResult.newTranslation) {
+            console.log(`✅ [StudyCard] Translation fixed: "${fixResult.oldTranslation}" -> "${fixResult.newTranslation}"`);
+            setFixedTranslation(fixResult.newTranslation);
+          }
+        }
+      } catch (error) {
+        console.error('❌ [StudyCard] Translation fix error:', error);
+      }
+    }
+    checkAndFixTranslation();
   }, [card]);
 
   // 键盘快捷键：1/2/3/4 对应 Forgot/Hard/Good/Easy
@@ -358,6 +379,7 @@ export function StudyCard({
             onRate={handleRating}
             shadowTranslation={shadowTranslation}
             intervalPreviews={intervalPreviews}
+            fixedTranslation={fixedTranslation}
           />
         </motion.div>
       </div>

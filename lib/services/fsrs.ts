@@ -10,6 +10,33 @@ const f: FSRS = fsrs({
     enable_short_term: true,
 });
 
+/**
+ * 验证日期是否有效
+ * ts-fsrs 返回的 Date 对象可能不是标准 Date 实例，所以不能用 instanceof 检查
+ */
+function isValidDate(date: unknown): boolean {
+    if (!date) return false;
+    // 尝试获取时间戳，如果成功且不是 NaN，则日期有效
+    const timestamp = (date as Date).getTime?.();
+    return typeof timestamp === 'number' && !isNaN(timestamp) && isFinite(timestamp);
+}
+
+/**
+ * 安全地解析日期字符串，无效时返回当前时间
+ */
+function parseDateSafely(dateStr: string | null | undefined): Date {
+    if (!dateStr) {
+        console.warn('⚠️ [FSRS] due 字段为空，使用当前时间作为回退');
+        return new Date();
+    }
+    const parsed = new Date(dateStr);
+    if (!isValidDate(parsed)) {
+        console.warn(`⚠️ [FSRS] 无效的日期格式: "${dateStr}"，使用当前时间作为回退`);
+        return new Date();
+    }
+    return parsed;
+}
+
 // 评分映射：应用评分 -> FSRS Grade
 export type AppRating = 'forgot' | 'hard' | 'good' | 'easy';
 
@@ -66,28 +93,69 @@ export function processReview(
 
     // 构建符合 ts-fsrs 要求的卡片对象
     const cardInput = {
-        due: new Date(currentCard.due),
+        due: parseDateSafely(currentCard.due),
         stability: currentCard.stability || 0,
         difficulty: currentCard.difficulty || 0,
         reps: currentCard.reps || 0,
         lapses: 0,
-        state: currentCard.state,
+        state: currentCard.state ?? 0,  // 0 = New card
         learning_steps: 0,
         elapsed_days: 0,
         scheduled_days: 0,
     };
 
+    console.log('📊 [FSRS DEBUG] Input card state:', {
+        due: cardInput.due.toISOString(),
+        stability: cardInput.stability,
+        difficulty: cardInput.difficulty,
+        reps: cardInput.reps,
+        state: cardInput.state,
+        rating: rating,
+        fsrsGrade: fsrsGrade,
+    });
+
     // 使用 FSRS 算法计算下一次复习
     const result: RecordLogItem = f.next(cardInput, now, fsrsGrade);
     const nextCard = result.card;
 
-    return {
-        due: nextCard.due.toISOString(),
+    console.log('📊 [FSRS DEBUG] Output card:', {
+        due: nextCard.due,
+        scheduled_days: nextCard.scheduled_days,
         stability: nextCard.stability,
         difficulty: nextCard.difficulty,
-        reps: nextCard.reps,
         state: nextCard.state,
-        scheduledDays: nextCard.scheduled_days,
+    });
+
+    // 验证返回的日期是否有效，使用多层回退策略
+    let dueDate: Date;
+    if (isValidDate(nextCard.due)) {
+        dueDate = nextCard.due;
+    } else {
+        console.warn('⚠️ [FSRS] 计算结果的 due 日期无效');
+        // 尝试使用 scheduled_days 计算
+        const scheduledMs = nextCard.scheduled_days * 24 * 60 * 60 * 1000;
+        if (!isNaN(scheduledMs) && isFinite(scheduledMs)) {
+            dueDate = new Date(now.getTime() + scheduledMs);
+        } else {
+            // 最终回退：使用当前时间 + 10 分钟
+            console.warn('⚠️ [FSRS] scheduled_days 也无效，使用 now + 10 分钟作为回退');
+            dueDate = new Date(now.getTime() + 10 * 60 * 1000);
+        }
+    }
+
+    // 最终安全检查
+    if (!isValidDate(dueDate)) {
+        console.error('🚨 [FSRS] 所有日期计算均失败，强制使用当前时间');
+        dueDate = new Date();
+    }
+
+    return {
+        due: dueDate.toISOString(),
+        stability: nextCard.stability ?? 0,
+        difficulty: nextCard.difficulty ?? 0,
+        reps: nextCard.reps ?? 0,
+        state: nextCard.state ?? 0,
+        scheduledDays: isNaN(nextCard.scheduled_days) ? 0 : nextCard.scheduled_days,
     };
 }
 
@@ -152,13 +220,34 @@ export function previewAllRatings(currentCard: {
 } {
     const ratings: AppRating[] = ['forgot', 'hard', 'good', 'easy'];
     const result: any = {};
+    const now = new Date();
 
     for (const rating of ratings) {
-        const preview = processReview(currentCard, rating);
-        result[rating] = {
-            scheduledDays: preview.scheduledDays,
-            display: getScheduleDescription(preview.scheduledDays),
-        };
+        try {
+            const preview = processReview(currentCard, rating);
+            // 对于学习阶段的卡片，scheduled_days 可能是 0
+            // 需要从 due 日期计算实际间隔
+            let actualDays = preview.scheduledDays;
+            if (actualDays === 0 && preview.due) {
+                const dueDate = new Date(preview.due);
+                if (isValidDate(dueDate)) {
+                    actualDays = (dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000);
+                    if (actualDays < 0) actualDays = 0;
+                }
+            }
+            result[rating] = {
+                scheduledDays: actualDays,
+                display: getScheduleDescription(actualDays),
+            };
+        } catch (error) {
+            console.error(`⚠️ [FSRS] 预览 ${rating} 失败:`, error);
+            // 使用默认值回退
+            const defaults = { forgot: '1m', hard: '10m', good: '1d', easy: '4d' };
+            result[rating] = {
+                scheduledDays: 0,
+                display: defaults[rating],
+            };
+        }
     }
 
     return result;
