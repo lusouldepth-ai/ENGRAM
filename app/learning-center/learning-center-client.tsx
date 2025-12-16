@@ -6,16 +6,18 @@ import { migrateToVocabularyBook, ensureMistakeBook } from "@/app/actions/deck-m
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, Target, Flame, BookOpen, Settings, ChevronRight, BookMarked, AlertCircle } from "lucide-react";
+import { LearningHeatmap } from "@/components/dashboard/LearningHeatmap";
+import { TrendingUp, Target, Flame, BookOpen, Settings, ChevronRight, BookMarked, AlertCircle, Calendar } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface LearningCenterClientProps {
     stats: LearningStats;
     decks: any[];
+    yearlyActivity: { date: string; count: number }[];
 }
 
-export default function LearningCenterClient({ stats, decks }: LearningCenterClientProps) {
+export default function LearningCenterClient({ stats, decks, yearlyActivity }: LearningCenterClientProps) {
     const [dailyGoal, setDailyGoal] = useState(stats.todayTarget);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     const [isPending, startTransition] = useTransition();
@@ -168,6 +170,15 @@ export default function LearningCenterClient({ stats, decks }: LearningCenterCli
                         </div>
                     </div>
                 </Card>
+            </div>
+
+            {/* Learning Activity Heatmap */}
+            <div className="mt-8">
+                <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="w-5 h-5 text-gray-500" />
+                    <h2 className="text-lg font-semibold text-braun-text">学习活动</h2>
+                </div>
+                <LearningHeatmap activityData={yearlyActivity} />
             </div>
 
             {/* Decks Section */}

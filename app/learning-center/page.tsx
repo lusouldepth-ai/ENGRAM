@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/landing/Navbar";
 import { getLearningStats, getAllDecks } from "@/app/actions/learning-stats";
+import { getYearlyActivity } from "@/app/actions/activity-stats";
 import LearningCenterClient from "./learning-center-client";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,10 @@ export default async function LearningCenterPage() {
         redirect("/login");
     }
 
-    const [stats, decks] = await Promise.all([
+    const [stats, decks, yearlyActivity] = await Promise.all([
         getLearningStats(),
         getAllDecks(),
+        getYearlyActivity(),
     ]);
 
     return (
@@ -30,7 +32,7 @@ export default async function LearningCenterPage() {
                     <p className="text-gray-500">Track your progress and manage your vocabulary decks</p>
                 </div>
 
-                <LearningCenterClient stats={stats} decks={decks} />
+                <LearningCenterClient stats={stats} decks={decks} yearlyActivity={yearlyActivity} />
             </div>
         </main>
     );

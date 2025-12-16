@@ -35,11 +35,11 @@ export async function getLearningStats(): Promise<LearningStats> {
     // Get user profile for daily goal
     const { data: profile } = await supabase
         .from('profiles')
-        .select('daily_goal')
+        .select('daily_new_words_goal')
         .eq('id', user.id)
         .single();
 
-    const dailyGoal = profile?.daily_goal || 5;
+    const dailyGoal = profile?.daily_new_words_goal || 10;
 
     // Get total cards count
     const { count: totalCards } = await supabase

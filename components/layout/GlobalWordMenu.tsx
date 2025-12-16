@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, Volume2, Plus, Check, X } from 'lucide-react';
+import { Loader2, Volume2, Plus, Check, X, BookOpen } from 'lucide-react';
 import { generateCards } from '@/app/actions/generate-cards';
 import { saveCards } from '@/app/actions/save-cards';
+import { lookupVocabWord } from '@/app/actions/vocab-lookup';
+import { vocabToCardFormat } from '@/lib/vocab-utils';
 import { playHighQualitySpeech } from '@/lib/services/ttsService';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { createClient } from '@/lib/supabase/client';
+
 
 // Define a type for the card data we expect
 type CardData = {
@@ -29,6 +32,7 @@ export function GlobalWordMenu() {
     const [isSaved, setIsSaved] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [accent, setAccent] = useState<'US' | 'UK'>('US');
+    const [fromVocab, setFromVocab] = useState<string | null>(null);
 
     const menuRef = useRef<HTMLDivElement>(null);
     const supabase = createClient();
@@ -112,8 +116,43 @@ export function GlobalWordMenu() {
 
     const fetchTranslation = async (text: string) => {
         setIsLoading(true);
+        setFromVocab(null);
+
         try {
-            // Request only 1 card for speed
+            // 1. 先查词库
+            const cleanWord = text.trim().toLowerCase();
+            console.log(`🔍 [WordMenu] Looking up: "${cleanWord}"`);
+
+            const vocabResult = await lookupVocabWord(cleanWord);
+
+            if (vocabResult.found && vocabResult.word) {
+                // ✅ 词库命中
+                console.log(`✅ [WordMenu] Found in vocab: "${cleanWord}" from "${vocabResult.book?.title}"`);
+
+                const vocabCard = vocabToCardFormat(vocabResult.word);
+                if (vocabCard) {
+                    setCardData({
+                        front: vocabCard.front,
+                        translation: vocabCard.back,
+                        phonetic: vocabCard.phonetic,
+                        pos: vocabCard.pos,
+                        definition: vocabCard.definition,
+                        example: vocabCard.example,
+                        exampleCn: vocabCard.exampleCn,
+                        // 词库特有字段
+                        realExamSentence: vocabCard.realExamSentence,
+                        memoryMethod: vocabCard.memoryMethod,
+                        synonyms: vocabCard.synonyms,
+                        phrases: vocabCard.phrases,
+                        source: 'vocabulary_library'
+                    });
+                    setFromVocab(vocabResult.book?.title || '词库');
+                    return;
+                }
+            }
+
+            // 2. 词库没有，用 AI 生成
+            console.log(`🤖 [WordMenu] Not in vocab, using AI for: "${cleanWord}"`);
             const result = await generateCards(text, undefined, 1);
 
             if (result.success && result.data && result.data.length > 0) {

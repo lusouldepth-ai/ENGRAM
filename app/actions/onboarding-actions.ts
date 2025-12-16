@@ -11,6 +11,7 @@ export async function updateProfile(data: {
     exam_date?: string;
     english_level?: string;
     accent_preference?: string;
+    daily_new_words_goal?: number;
 }) {
     const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();

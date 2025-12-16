@@ -29,6 +29,7 @@ export function SettingsForm({ profile }: SettingsFormProps) {
     learning_goal: profile?.learning_goal || "General",
     english_level: profile?.english_level || "Intermediate",
     accent_preference: profile?.accent_preference || "US",
+    daily_new_words_goal: profile?.daily_new_words_goal || 10,
   })
 
   const handleChange = (field: string, value: string) => {
@@ -45,6 +46,7 @@ export function SettingsForm({ profile }: SettingsFormProps) {
         learning_goal: formData.learning_goal,
         english_level: formData.english_level,
         accent_preference: formData.accent_preference,
+        daily_new_words_goal: formData.daily_new_words_goal,
       });
 
       if (!result.success) {
@@ -131,6 +133,32 @@ export function SettingsForm({ profile }: SettingsFormProps) {
               <SelectItem value="UK">British (UK)</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="daily-words">每日新词目标</Label>
+            <span className="text-lg font-semibold text-braun-accent">
+              {formData.daily_new_words_goal} 个/天
+            </span>
+          </div>
+          <input
+            type="range"
+            id="daily-words"
+            min="5"
+            max="50"
+            step="5"
+            value={formData.daily_new_words_goal}
+            onChange={(e) => handleChange("daily_new_words_goal", parseInt(e.target.value) as any)}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-braun-accent"
+          />
+          <div className="flex justify-between text-xs text-gray-400">
+            <span>5个</span>
+            <span>轻松</span>
+            <span>适中</span>
+            <span>挑战</span>
+            <span>50个</span>
+          </div>
         </div>
 
         <div className="pt-4">
