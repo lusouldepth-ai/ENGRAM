@@ -55,8 +55,8 @@ export default function LearningCenterClient({ stats, decks, yearlyActivity }: L
 
     return (
         <div className="space-y-8">
-            {/* Statistics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Statistics Grid - 3 columns since heatmap now has trend */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Today's Progress */}
                 <Card className="p-6 bg-white border-gray-200 hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-4">
@@ -142,43 +142,15 @@ export default function LearningCenterClient({ stats, decks, yearlyActivity }: L
                         </p>
                     </div>
                 </Card>
-
-                {/* Weekly Trend */}
-                <Card className="p-6 bg-white border-gray-200 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">This Week</h3>
-                        <TrendingUp className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between h-16">
-                            {stats.weeklyProgress.map((day, idx) => {
-                                const maxCount = Math.max(...stats.weeklyProgress.map(d => d.count), 1);
-                                const heightPercent = (day.count / maxCount) * 100;
-                                return (
-                                    <div key={idx} className="flex flex-col items-center gap-1 flex-1">
-                                        <div className="w-full flex items-end justify-center h-12">
-                                            <div
-                                                className="w-3 bg-braun-accent rounded-t transition-all"
-                                                style={{ height: `${heightPercent}%` }}
-                                                title={`${day.count} cards`}
-                                            />
-                                        </div>
-                                        <span className="text-[10px] text-gray-400">{day.day}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </Card>
             </div>
 
-            {/* Learning Activity Heatmap */}
-            <div className="mt-8">
-                <div className="flex items-center gap-2 mb-4">
-                    <Calendar className="w-5 h-5 text-gray-500" />
-                    <h2 className="text-lg font-semibold text-braun-text">学习活动</h2>
-                </div>
-                <LearningHeatmap activityData={yearlyActivity} />
+            {/* Learning Activity Heatmap - 关联今日进度和连续天数 */}
+            <div className="mt-6">
+                <LearningHeatmap
+                    activityData={yearlyActivity}
+                    todayProgress={{ reviewed: stats.todayReviewed, target: stats.todayTarget }}
+                    streakDays={stats.streakDays}
+                />
             </div>
 
             {/* Decks Section */}
