@@ -39,20 +39,15 @@ export async function quickAddCard(word: string) {
         if (vocabCard) {
             cardToSave = {
                 front: vocabCard.front,
-                back: vocabCard.back,
+                translation: vocabCard.translation,
                 phonetic: vocabCard.phonetic,
+                pos: vocabCard.pos,
                 definition: vocabCard.definition,
                 example: vocabCard.example,
-                exampleCn: vocabCard.exampleCn,
-                // 词库特有字段（会在 StudyCard 中可选显示）
-                realExamSentence: vocabCard.realExamSentence,
-                realExamSource: vocabCard.realExamSource,
-                memoryMethod: vocabCard.memoryMethod,
-                synonyms: vocabCard.synonyms,
-                phrases: vocabCard.phrases,
-                relatedWords: vocabCard.relatedWords,
-                vocabBookTitle: vocabCard.vocabBookTitle,
-                cefrLevel: vocabCard.cefrLevel,
+                short_usage: vocabCard.short_usage,
+                shadow_sentence: vocabCard.shadow_sentence,
+                shadow_sentence_translation: vocabCard.shadow_sentence_translation,
+                root_analysis: vocabCard.root_analysis,
                 source: 'vocabulary_library'
             };
             source = 'vocabulary';

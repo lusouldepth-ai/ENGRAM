@@ -68,3 +68,6 @@ export function vocabWordToCard(word: VocabWord, uiLanguage: string = 'cn') {
         _related_words: word.related_words,
     };
 }
+
+// Export alias for backward compatibility
+export const vocabToCardFormat = vocabWordToCard;

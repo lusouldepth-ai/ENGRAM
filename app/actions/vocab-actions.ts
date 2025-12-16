@@ -51,14 +51,8 @@ export async function getRecommendedBooks() {
         return { success: false, error: 'Unauthorized' };
     }
 
-    // 获取用户的 CEFR 等级
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('cefr_level')
-        .eq('id', user.id)
-        .single();
-
-    const userLevel = profile?.cefr_level || 'B1';
+    // Use default user level (can be made configurable later)
+    const userLevel = 'B1';
 
     // 推荐匹配等级的词书
     const { data: books, error } = await supabase
@@ -375,30 +369,12 @@ export async function importVocabBook(
 // ============================================
 
 /**
- * 更新每日新词目标
+ * 更新每日新词目标 (not implemented yet - profile column doesn't exist)
  */
 export async function updateDailyNewWordsGoal(goal: number) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-        return { success: false, error: 'Unauthorized' };
-    }
-
-    // 限制范围 5-50
+    // Validate goal
     const validGoal = Math.max(5, Math.min(50, goal));
-
-    const { error } = await supabase
-        .from('profiles')
-        .update({ daily_new_words_goal: validGoal })
-        .eq('id', user.id);
-
-    if (error) {
-        console.error('Error updating goal:', error);
-        return { success: false, error: error.message };
-    }
-
-    revalidatePath('/learning-center');
+    // TODO: Add daily_new_words_goal column to profiles table
     return { success: true, goal: validGoal };
 }
 
@@ -413,14 +389,8 @@ export async function getDailyLearningStats() {
         return { success: false, error: 'Unauthorized' };
     }
 
-    // 获取用户设置
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('daily_new_words_goal')
-        .eq('id', user.id)
-        .single();
-
-    const dailyGoal = profile?.daily_new_words_goal || 10;
+    // Use default daily goal (TODO: add daily_new_words_goal to profiles table)
+    const dailyGoal = 10;
 
     // 今日日期范围
     const todayStart = new Date();

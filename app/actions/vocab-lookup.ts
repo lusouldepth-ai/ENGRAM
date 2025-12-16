@@ -66,11 +66,11 @@ export async function searchVocabWords(query: string, limit: number = 5) {
     }
 
     return {
-        words: data?.map(w => ({
+        words: data?.map((w: any) => ({
             id: w.id,
             word: w.head_word,
             phonetic: w.us_phonetic,
-            translation: w.translations?.[0]?.tranCn || '',
+            translation: (w.translations as any)?.[0]?.tranCn || '',
             level: w.vocab_books?.cefr_level,
             book: w.vocab_books?.title
         })) || []
@@ -88,14 +88,8 @@ export async function getRecommendedVocab(count: number = 5) {
         return { words: [] };
     }
 
-    // 获取用户等级
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('cefr_level')
-        .eq('id', user.id)
-        .single();
-
-    const userLevel = profile?.cefr_level || 'B1';
+    // Use default user level
+    const userLevel = 'B1';
 
     // 获取匹配等级的词书
     const { data: books } = await supabase
@@ -133,11 +127,11 @@ export async function getRecommendedVocab(count: number = 5) {
     const shuffled = words.sort(() => Math.random() - 0.5).slice(0, count);
 
     return {
-        words: shuffled.map(w => ({
+        words: shuffled.map((w: any) => ({
             id: w.id,
             word: w.head_word,
             phonetic: w.us_phonetic,
-            translation: w.translations?.[0]?.tranCn || '',
+            translation: (w.translations as any)?.[0]?.tranCn || '',
             level: w.vocab_books?.cefr_level,
             book: w.vocab_books?.title
         })),
