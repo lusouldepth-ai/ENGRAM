@@ -16,8 +16,8 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({
             request,
           })
@@ -25,6 +25,14 @@ export async function updateSession(request: NextRequest) {
             response.cookies.set(name, value, options)
           )
         },
+      },
+      db: {
+        schema: 'public',
+      },
+      auth: {
+        detectSessionInUrl: false,
+        persistSession: false,
+        autoRefreshToken: false,
       },
     }
   )
@@ -34,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isPublicPath = publicPaths.includes(pathname)
   const isStaticAsset = pathname.startsWith('/_next') || pathname.includes('.')
-  
+
   // Skip middleware for static assets and API routes
   if (isStaticAsset) {
     return response
@@ -48,7 +56,7 @@ export async function updateSession(request: NextRequest) {
 
   // Protected routes - need full auth check
   const { data: { user } } = await supabase.auth.getUser()
-  
+
   const isLoginPage = pathname.startsWith('/login')
   const isOnboardingPage = pathname === '/onboarding'
 
@@ -66,7 +74,7 @@ export async function updateSession(request: NextRequest) {
       .single()
 
     const onboardingCompleted = profile?.onboarding_completed ?? false
-    
+
     if (isLoginPage) {
       return NextResponse.redirect(
         new URL(onboardingCompleted ? '/dashboard' : '/onboarding', request.url)
