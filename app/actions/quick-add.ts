@@ -18,7 +18,7 @@ export async function quickAddCard(word: string) {
     // 2. Save Card
     // We assume the first generated card is the one we want
     const cardToSave = genResult.data[0];
-    const saveResult = await saveCards([cardToSave], "Quick Add");
+    const saveResult = await saveCards([cardToSave], "我的生词本");
 
     if (!saveResult.success) {
         return { success: false, error: saveResult.error };

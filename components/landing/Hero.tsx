@@ -15,7 +15,7 @@ export function Hero() {
                {t('hero.title')}
             </h1>
 
-            <p className="text-xl text-braun-gray max-w-lg mx-auto mb-10 leading-relaxed">
+            <p className="text-xl text-braun-gray max-w-2xl mx-auto mb-10 leading-relaxed whitespace-nowrap">
                {t('hero.subtitle')}
             </p>
 

@@ -30,6 +30,9 @@ interface StudyCardProps {
   userTier?: string | null;
   accentPreference?: string | null;
   shadowRate?: number | null;
+  // Progress tracking
+  totalCards?: number;
+  completedCards?: number;
 }
 
 export function StudyCard({
@@ -41,6 +44,8 @@ export function StudyCard({
   userTier,
   accentPreference,
   shadowRate: shadowRateProp,
+  totalCards = 0,
+  completedCards = 0,
 }: StudyCardProps) {
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -324,14 +329,23 @@ export function StudyCard({
     audio.play();
   };
 
+  // Calculate progress percentage
+  const progressPercent = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
+
   return (
     <div className="w-full max-w-4xl mx-auto p-4 flex flex-col items-center justify-center min-h-[600px]">
       {/* Progress Bar */}
-      <div className="w-full h-1 bg-neutral-200 rounded-full mb-6">
-        <div
-          className="h-1 bg-orange-500 rounded-full transition-all duration-500"
-          style={{ width: '0%' }}
-        />
+      <div className="w-full mb-6">
+        <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
+          <span>今日进度</span>
+          <span className="font-medium">{completedCards} / {totalCards} 张</span>
+        </div>
+        <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
+          <div
+            className="h-2 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
       </div>
 
       {/* Card Container */}

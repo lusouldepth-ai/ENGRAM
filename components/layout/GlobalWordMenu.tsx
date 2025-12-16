@@ -147,7 +147,7 @@ export function GlobalWordMenu() {
 
         setIsSaving(true);
         try {
-            const result = await saveCards([cardData], "Quick Add");
+            const result = await saveCards([cardData], "我的生词本");
             if (result.success) {
                 setIsSaved(true);
                 // Close menu after a short delay or let user close it

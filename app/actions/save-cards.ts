@@ -41,20 +41,47 @@ export async function saveCards(cards: CardData[], deckTitle: string = "Generate
       await supabase.from('profiles').insert({ id: user.id, email: user.email });
     }
 
-    // 3. Create Deck
-    const { data: deck, error: deckError } = await supabase
-      .from('decks')
-      .insert({
-        user_id: user.id,
-        title: deckTitle,
-        is_preset: false
-      })
-      .select()
-      .single();
+    // 3. Create or find existing Deck
+    // For special deck titles, reuse existing deck instead of creating new one
+    const REUSABLE_DECK_TITLES = ['我的生词本', '我的错词本', '生词本', 'Quick Add', 'Starter Deck', 'Vocabulary'];
+    const shouldReuseDeck = REUSABLE_DECK_TITLES.includes(deckTitle);
 
-    if (deckError) {
-      console.error("Deck Creation Error:", deckError);
-      throw new Error(`Failed to create deck: ${deckError.message}`);
+    let deck: { id: string } | null = null;
+
+    if (shouldReuseDeck) {
+      // Try to find existing deck with this title
+      const { data: existingDeck } = await supabase
+        .from('decks')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', deckTitle)
+        .single();
+
+      if (existingDeck) {
+        console.log(`📚 Found existing deck "${deckTitle}", adding cards to it`);
+        deck = existingDeck;
+      }
+    }
+
+    // If no existing deck found, create new one
+    if (!deck) {
+      const { data: newDeck, error: deckError } = await supabase
+        .from('decks')
+        .insert({
+          user_id: user.id,
+          title: deckTitle,
+          is_preset: false
+        })
+        .select()
+        .single();
+
+      if (deckError) {
+        console.error("Deck Creation Error:", deckError);
+        throw new Error(`Failed to create deck: ${deckError.message}`);
+      }
+
+      console.log(`📚 Created new deck "${deckTitle}"`);
+      deck = newDeck;
     }
 
     // 4. Insert Cards

@@ -22,6 +22,7 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, startTransition] = useTransition();
   const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(null);
+  const [initialCardCount, setInitialCardCount] = useState(0);
 
   // Debug: Log received profile
   console.log('📋 [ReviewSection] Received profile:', profile);
@@ -31,6 +32,7 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
     const loadCards = async () => {
       const dueCards = await getDueCards();
       setCards(dueCards);
+      setInitialCardCount(dueCards.length);
       setIsLoading(false);
     };
     loadCards();
@@ -102,6 +104,8 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
         onRate={handleReview}
         userTier={profile?.tier}
         accentPreference={profile?.accent_preference}
+        totalCards={initialCardCount}
+        completedCards={currentIndex}
       />
     </div>
   );

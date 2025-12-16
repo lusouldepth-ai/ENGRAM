@@ -77,7 +77,7 @@ export async function saveStarterCards(cards: any[]) {
     }
 
     // 2. Save Cards
-    const saveResult = await saveCards(cards, "Starter Deck");
+    const saveResult = await saveCards(cards, "我的生词本");
 
     if (!saveResult.success) {
         return { success: false, error: saveResult.error };

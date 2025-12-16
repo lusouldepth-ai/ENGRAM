@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { LearningStats, updateDailyGoal } from "@/app/actions/learning-stats";
+import { migrateToVocabularyBook, ensureMistakeBook } from "@/app/actions/deck-migration";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TrendingUp, Target, Flame, BookOpen, Settings, ChevronRight } from "lucide-react";
+import { TrendingUp, Target, Flame, BookOpen, Settings, ChevronRight, BookMarked, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -18,7 +19,23 @@ export default function LearningCenterClient({ stats, decks }: LearningCenterCli
     const [dailyGoal, setDailyGoal] = useState(stats.todayTarget);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     const [isPending, startTransition] = useTransition();
+    const [migrationDone, setMigrationDone] = useState(false);
     const router = useRouter();
+
+    // 自动运行迁移：将旧 deck 合并到"我的生词本"
+    useEffect(() => {
+        async function runMigration() {
+            const result = await migrateToVocabularyBook();
+            if (result.success && (result.migratedCards > 0 || result.deletedDecks > 0)) {
+                console.log(`📚 [Migration] Migrated ${result.migratedCards} cards, deleted ${result.deletedDecks} old decks`);
+                setMigrationDone(true);
+                router.refresh();
+            }
+            // 确保错词本存在
+            await ensureMistakeBook();
+        }
+        runMigration();
+    }, [router]);
 
     const handleUpdateGoal = () => {
         startTransition(async () => {
