@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -141,7 +143,7 @@ export default function OnboardingPage() {
             case 'purpose': setStep('identity'); break;
             case 'level': setStep('purpose'); break;
             case 'scenario': setStep('level'); break;
-            case 'accent': 
+            case 'accent':
                 if (SCENARIO_OPTIONS[formData.purpose]?.length > 0) {
                     setStep('scenario');
                 } else {
@@ -226,11 +228,11 @@ export default function OnboardingPage() {
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-braun-bg text-braun-text animate-fade-in selection:bg-braun-accent selection:text-white py-12">
-            
+
             {/* Progress Bar */}
             {step !== 'loading' && step !== 'selection' && (
                 <div className="fixed top-0 left-0 w-full h-1 bg-gray-200">
-                    <motion.div 
+                    <motion.div
                         className="h-full bg-braun-accent"
                         initial={{ width: 0 }}
                         animate={{ width: `${getProgress()}%` }}
@@ -354,11 +356,10 @@ export default function OnboardingPage() {
                                             <div className="font-medium">{opt.label}</div>
                                             <div className={`text-xs mt-1 ${formData.level === opt.value ? "text-gray-600" : "text-gray-400"}`}>{opt.desc}</div>
                                         </div>
-                                        <span className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                                            formData.level === opt.value 
-                                                ? "bg-braun-accent text-white" 
+                                        <span className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${formData.level === opt.value
+                                                ? "bg-braun-accent text-white"
                                                 : "bg-gray-100 text-gray-500"
-                                        }`}>{opt.cefr}</span>
+                                            }`}>{opt.cefr}</span>
                                     </div>
                                 </SelectionButton>
                             ))}
@@ -564,14 +565,14 @@ export default function OnboardingPage() {
 }
 
 // Selection Button Component - 优雅的选中状态
-function SelectionButton({ 
-    children, 
-    selected, 
+function SelectionButton({
+    children,
+    selected,
     onClick,
     className = ""
-}: { 
-    children: React.ReactNode; 
-    selected: boolean; 
+}: {
+    children: React.ReactNode;
+    selected: boolean;
     onClick: () => void;
     className?: string;
 }) {
@@ -593,14 +594,14 @@ function SelectionButton({
 }
 
 // Selection Card Component (for identity step with icons) - 更精致的卡片设计
-function SelectionCard({ 
-    selected, 
-    onClick, 
+function SelectionCard({
+    selected,
+    onClick,
     icon: Icon,
     label,
     desc
-}: { 
-    selected: boolean; 
+}: {
+    selected: boolean;
     onClick: () => void;
     icon: any;
     label: string;
@@ -623,18 +624,18 @@ function SelectionCard({
                     <Check className="w-4 h-4 text-white" />
                 </div>
             )}
-            
+
             {/* 图标容器 */}
             <div className={`
                 w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-all duration-300
-                ${selected 
-                    ? "bg-braun-accent shadow-lg" 
+                ${selected
+                    ? "bg-braun-accent shadow-lg"
                     : "bg-orange-50 group-hover:bg-orange-100"
                 }
             `}>
                 <Icon className={`w-6 h-6 ${selected ? "text-white" : "text-braun-accent"}`} />
             </div>
-            
+
             <div className={`font-bold text-lg ${selected ? "text-braun-text" : "text-braun-text"}`}>
                 {label}
             </div>

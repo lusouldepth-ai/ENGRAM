@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Check, Lock, Star, Zap, ArrowLeft, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+export const dynamic = 'force-dynamic';
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/landing/Navbar";
@@ -28,19 +29,19 @@ export default function PricingPage() {
           .select('*')
           .eq('id', user.id)
           .single();
-        
+
         // If profile doesn't exist, create one
         if (!data) {
           console.log("⚠️ [Pricing] Profile missing, creating one...");
           await supabase
             .from('profiles')
-            .insert({ 
-              id: user.id, 
+            .insert({
+              id: user.id,
               email: user.email,
               tier: 'free',
               accent_preference: 'US'
             });
-          
+
           const { data: newProfile } = await supabase
             .from('profiles')
             .select('*')
@@ -62,16 +63,16 @@ export default function PricingPage() {
     }
 
     setUpgrading(true);
-    
+
     // Use upsert to ensure profile exists and update tier
     const { error } = await supabase
       .from('profiles')
-      .upsert({ 
-        id: user.id, 
+      .upsert({
+        id: user.id,
         email: user.email,
-        tier: 'pro' 
-      }, { 
-        onConflict: 'id' 
+        tier: 'pro'
+      }, {
+        onConflict: 'id'
       });
 
     if (error) {
