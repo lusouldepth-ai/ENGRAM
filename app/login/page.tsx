@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
 
+// 确保页面完全动态，不在构建时预渲染
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
@@ -26,9 +28,9 @@ function LoginPageContent() {
     }
   }, [searchParams]);
 
-  const supabase = createClient();
-
   const handleAuth = async (e: React.FormEvent) => {
+    // 延迟创建 Supabase 客户端，避免构建时访问
+    const supabase = createClient();
     e.preventDefault();
     setLoading(true);
     setError(null);

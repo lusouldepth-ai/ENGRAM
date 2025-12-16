@@ -280,7 +280,20 @@ export async function importVocabBook(
 
     try {
         // 读取 JSON 文件
+        // 注意：在 Vercel 生产环境中，这些文件不会被部署
+        // 导入功能应该在本地环境或通过其他方式（如 Supabase Storage）完成
         const filePath = path.join(process.cwd(), 'data', jsonFilePath);
+        
+        // 检查文件是否存在（Vercel 环境中可能不存在）
+        try {
+            await fs.access(filePath);
+        } catch {
+            return { 
+                success: false, 
+                error: 'JSON 文件未找到。在生产环境中，请使用 Supabase Storage 或其他方式存储词库文件。' 
+            };
+        }
+        
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const words = JSON.parse(fileContent);
 

@@ -3,7 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { Check, Lock, Star, Zap, ArrowLeft, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+// 确保页面完全动态，不在构建时预渲染
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/landing/Navbar";
@@ -12,7 +15,6 @@ import { useLanguage } from "@/lib/contexts/LanguageContext";
 
 export default function PricingPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,8 @@ export default function PricingPage() {
 
   useEffect(() => {
     async function getData() {
+      // 延迟创建 Supabase 客户端，避免构建时访问
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
@@ -54,7 +58,7 @@ export default function PricingPage() {
       setLoading(false);
     }
     getData();
-  }, [supabase]);
+  }, []);
 
   const handleUpgrade = async () => {
     if (!user) {
@@ -64,6 +68,8 @@ export default function PricingPage() {
 
     setUpgrading(true);
 
+    // 延迟创建 Supabase 客户端
+    const supabase = createClient();
     // Use upsert to ensure profile exists and update tier
     const { error } = await supabase
       .from('profiles')

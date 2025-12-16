@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { Upload, Check, AlertCircle, Loader2 } from "lucide-react";
 
+// 确保页面完全动态，不在构建时预渲染
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default function AdminImportPage() {
     const [isImporting, setIsImporting] = useState(false);
