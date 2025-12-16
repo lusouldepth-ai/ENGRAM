@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Upload, Check, AlertCircle, Loader2 } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default function AdminImportPage() {
     const [isImporting, setIsImporting] = useState(false);
     const [result, setResult] = useState<any>(null);
