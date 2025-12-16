@@ -41,35 +41,49 @@ export async function getLearningStats(): Promise<LearningStats> {
 
     const dailyGoal = profile?.daily_new_words_goal || 10;
 
-    // Get total cards count
-    const { count: totalCards } = await supabase
+    // Get all cards with their states for deduplication
+    const { data: allCards } = await supabase
         .from('cards')
-        .select('*', { count: 'exact', head: true })
+        .select('front, is_mastered, state')
         .eq('user_id', user.id);
 
-    // Get mastered cards count
-    const { count: masteredCards } = await supabase
-        .from('cards')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('is_mastered', true);
+    // 去重统计：同一个单词只计一次（取最高掌握状态）
+    const wordStats = new Map<string, { is_mastered: boolean; state: number }>();
 
-    // Get learning cards (state = 1 or 2, not mastered)
-    const { count: learningCards } = await supabase
-        .from('cards')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('is_mastered', false)
-        .in('state', [1, 2]);
+    allCards?.forEach(card => {
+        const word = card.front?.toLowerCase().trim();
+        if (!word) return;
 
-    // Get new cards (state = 0)
-    const { count: newCards } = await supabase
-        .from('cards')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('state', 0);
+        const existing = wordStats.get(word);
+        if (!existing) {
+            wordStats.set(word, { is_mastered: card.is_mastered, state: card.state });
+        } else {
+            // 如果已存在，取更高的掌握状态（已掌握 > 学习中 > 新卡）
+            if (card.is_mastered && !existing.is_mastered) {
+                wordStats.set(word, { is_mastered: true, state: card.state });
+            } else if (!existing.is_mastered && card.state > existing.state) {
+                wordStats.set(word, { is_mastered: false, state: card.state });
+            }
+        }
+    });
 
-    // Get today's reviewed cards
+    // Calculate deduplicated counts
+    let totalCards = wordStats.size;
+    let masteredCards = 0;
+    let learningCards = 0;
+    let newCards = 0;
+
+    wordStats.forEach(stats => {
+        if (stats.is_mastered) {
+            masteredCards++;
+        } else if (stats.state === 1 || stats.state === 2) {
+            learningCards++;
+        } else if (stats.state === 0) {
+            newCards++;
+        }
+    });
+
+    // Get today's reviewed cards (still count actual reviews, not deduplicated)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const { count: todayReviewed } = await supabase
@@ -91,10 +105,10 @@ export async function getLearningStats(): Promise<LearningStats> {
         .eq('user_id', user.id);
 
     return {
-        totalCards: totalCards || 0,
-        masteredCards: masteredCards || 0,
-        learningCards: learningCards || 0,
-        newCards: newCards || 0,
+        totalCards,
+        masteredCards,
+        learningCards,
+        newCards,
         todayReviewed: todayReviewed || 0,
         todayTarget: dailyGoal,
         streakDays,

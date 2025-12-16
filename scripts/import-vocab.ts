@@ -153,6 +153,22 @@ async function main() {
         description: '大学英语六级考试核心高频词汇，包含真题例句和答题技巧'
     });
 
+    // 导入考研词库
+    await importVocabBook('kaoyan-vocabulary.json', {
+        title: '考研核心词汇',
+        category: '考研',
+        cefrLevel: 'B2',
+        description: '考研英语核心高频词汇，适合研究生入学考试备考'
+    });
+
+    // 导入专四高频词
+    await importVocabBook('tem4-vocabulary.json', {
+        title: '专四高频词',
+        category: '专四专八',
+        cefrLevel: 'B2',
+        description: '英语专业四级考试高频词汇，适合英语专业学生备考'
+    });
+
     console.log('\n' + '='.repeat(50));
     console.log('✅ 所有导入任务完成!');
 }

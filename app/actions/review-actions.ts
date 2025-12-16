@@ -14,7 +14,7 @@ export async function getDueCards() {
   if (!user) return [];
 
   // Fetch cards where due <= now
-  // Limit to 20 cards per session
+  // Limit to 50 cards to allow for deduplication filtering
   const { data: cards, error } = await supabase
     .from('cards')
     .select('*')
@@ -22,14 +22,32 @@ export async function getDueCards() {
     .eq('is_mastered', false) // 不显示已掌握的卡片
     .lte('due', new Date().toISOString())
     .order('due', { ascending: true })
-    .limit(20);
+    .limit(50);
 
   if (error) {
     console.error("Error fetching due cards:", error);
     return [];
   }
 
-  return cards || [];
+  if (!cards || cards.length === 0) return [];
+
+  // 去重：如果同一个单词在多个卡片组中出现（如四级和六级都有），只显示一个
+  // 保留最早到期（排序已是 ascending）且优先保留已有复习记录的
+  const seenWords = new Set<string>();
+  const deduplicatedCards = cards.filter(card => {
+    const word = card.front?.toLowerCase().trim();
+    if (!word) return true; // 保留无法判断的卡片
+
+    if (seenWords.has(word)) {
+      console.log(`🔄 [Dedup] Skipping duplicate word: "${card.front}"`);
+      return false;
+    }
+    seenWords.add(word);
+    return true;
+  });
+
+  // 返回去重后的前20张卡片
+  return deduplicatedCards.slice(0, 20);
 }
 
 /**
