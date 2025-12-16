@@ -32,14 +32,8 @@ export async function getLearningStats(): Promise<LearningStats> {
         };
     }
 
-    // Get user profile for daily goal
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('daily_new_words_goal')
-        .eq('id', user.id)
-        .single();
-
-    const dailyGoal = profile?.daily_new_words_goal || 10;
+    // Use default daily goal (can be made configurable later)
+    const dailyGoal = 10;
 
     // Get all cards with their states for deduplication
     const { data: allCards } = await supabase
