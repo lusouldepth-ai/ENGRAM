@@ -145,6 +145,14 @@ async function main() {
         description: '大学英语四级考试核心高频词汇，包含真题例句和答题技巧'
     });
 
+    // 导入 CET6 词库
+    await importVocabBook('cet6-core-vocabulary.json', {
+        title: '六级真题核心词',
+        category: '四六级',
+        cefrLevel: 'B2',
+        description: '大学英语六级考试核心高频词汇，包含真题例句和答题技巧'
+    });
+
     console.log('\n' + '='.repeat(50));
     console.log('✅ 所有导入任务完成!');
 }

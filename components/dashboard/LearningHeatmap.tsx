@@ -22,7 +22,7 @@ type TimePeriod = '7days' | '30days' | '90days';
  * - 橙色主题配色
  * - 与上方统计卡片数据关联
  */
-export function LearningHeatmap({ activityData, todayProgress, streakDays }: LearningHeatmapProps) {
+export function LearningHeatmap({ activityData = [], todayProgress, streakDays }: LearningHeatmapProps) {
     // 默认选中今天
     const todayStr = new Date().toISOString().split('T')[0];
     const [selectedDate, setSelectedDate] = useState<string>(todayStr);
