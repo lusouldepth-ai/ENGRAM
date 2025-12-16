@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 
 // 确保页面完全动态，不在构建时预渲染
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/landing/Navbar";
