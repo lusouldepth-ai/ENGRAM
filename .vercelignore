@@ -12,5 +12,5 @@ data/*.json
 .idea
 coverage
 *.tsbuildinfo
-scripts/
+# 注意：scripts/ 目录需要保留，因为构建脚本需要它们
 
