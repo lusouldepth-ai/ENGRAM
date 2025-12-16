@@ -90,10 +90,10 @@ export default function DeckDetailClient({ deck }: DeckDetailClientProps) {
                     movedCards: result.movedCards,
                     duplicatesRemoved: result.duplicatesRemoved
                 });
-                // 合并成功后跳转回学习中心
+                // 合并成功后跳转到目标 Deck
                 setTimeout(() => {
-                    router.push('/learning-center');
-                }, 1500);
+                    router.push(`/learning-center/deck/${selectedTargetDeck}`);
+                }, 1000);
             } else {
                 alert("合并失败: " + result.error);
             }
@@ -144,55 +144,64 @@ export default function DeckDetailClient({ deck }: DeckDetailClientProps) {
 
             {/* Merge Panel */}
             {showMergePanel && (
-                <Card className="p-4 bg-blue-50 border-blue-200">
+                <Card className="p-6 bg-stone-50 border-stone-200">
                     {mergeResult ? (
                         <div className="text-center py-4">
-                            <p className="text-green-700 font-medium">✅ 合并成功！</p>
+                            <p className="text-green-700 font-medium mb-1">✅ 合并成功！</p>
                             <p className="text-sm text-gray-600">
                                 移动了 {mergeResult.movedCards} 张卡片
                                 {mergeResult.duplicatesRemoved > 0 && `，去除了 ${mergeResult.duplicatesRemoved} 个重复`}
                             </p>
                         </div>
                     ) : (
-                        <>
-                            <p className="text-blue-800 mb-3">
-                                将 "{deck.title}" 中的 {cards.length} 张卡片合并到:
-                            </p>
-                            <div className="flex gap-2 items-center">
-                                <select
-                                    value={selectedTargetDeck}
-                                    onChange={(e) => setSelectedTargetDeck(e.target.value)}
-                                    className="flex-1 h-10 px-3 rounded-md border border-blue-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    disabled={isMerging}
-                                >
-                                    <option value="">选择目标卡片组...</option>
-                                    {allDecks.map(d => (
-                                        <option key={d.id} value={d.id}>
-                                            {d.title} ({d.cardCount} 张卡片)
-                                        </option>
-                                    ))}
-                                </select>
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <h3 className="text-braun-text font-semibold mb-1">合并卡片组</h3>
+                                <p className="text-sm text-gray-500">
+                                    将 <span className="font-medium text-braun-text">"{deck.title}"</span> 中的 {cards.length} 张卡片移动到另一个卡片组。
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 items-center">
+                                <div className="flex-1 relative">
+                                    <select
+                                        value={selectedTargetDeck}
+                                        onChange={(e) => setSelectedTargetDeck(e.target.value)}
+                                        className="w-full h-10 px-3 pr-8 rounded-md border border-stone-200 bg-white text-sm text-braun-text focus:outline-none focus:ring-2 focus:ring-braun-accent/20 focus:border-braun-accent appearance-none"
+                                        disabled={isMerging}
+                                    >
+                                        <option value="">选择目标卡片组...</option>
+                                        {allDecks.map(d => (
+                                            <option key={d.id} value={d.id}>
+                                                {d.title} ({d.cardCount} 张卡片)
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-gray-400 pointer-events-none" />
+                                </div>
+
                                 <Button
                                     variant="outline"
-                                    size="sm"
                                     onClick={() => setShowMergePanel(false)}
                                     disabled={isMerging}
+                                    className="bg-white hover:bg-gray-50 text-gray-600 border-gray-200"
                                 >
                                     取消
                                 </Button>
                                 <Button
-                                    size="sm"
                                     onClick={handleMerge}
                                     disabled={isMerging || !selectedTargetDeck}
-                                    className="bg-blue-600 hover:bg-blue-700"
+                                    className="bg-braun-accent hover:bg-orange-700 text-white min-w-[100px]"
                                 >
                                     {isMerging ? "合并中..." : "确认合并"}
                                 </Button>
                             </div>
-                            <p className="text-xs text-blue-600 mt-2">
-                                ⚠️ 合并后此卡片组将被删除，重复单词会自动去重
-                            </p>
-                        </>
+
+                            <div className="flex items-start gap-2 text-xs text-braun-accent/80 bg-orange-50 p-3 rounded-md border border-orange-100">
+                                <div className="mt-0.5">⚠️</div>
+                                <p>合并后当前卡片组将被删除。如果目标卡片组中已存在相同的单词，将自动去重。</p>
+                            </div>
+                        </div>
                     )}
                 </Card>
             )}

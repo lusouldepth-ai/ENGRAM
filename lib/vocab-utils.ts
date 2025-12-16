@@ -1,48 +1,70 @@
-/**
- * 词库数据处理工具函数
- */
+// 词汇工具函数 - 非服务器操作
+// 将数据库词汇转换为卡片格式
 
-/**
- * 将词库数据转换为卡片格式
- */
-export function vocabToCardFormat(vocabWord: any) {
-    if (!vocabWord) return null;
+export interface VocabWord {
+    id: string;
+    head_word: string;
+    us_phonetic: string | null;
+    uk_phonetic: string | null;
+    translations: any; // JSONB
+    sentences: any; // JSONB
+    real_exam_sentences: any; // JSONB
+    synonyms: any; // JSONB
+    phrases: any; // JSONB
+    memory_method: string | null;
+    related_words: any; // JSONB
+}
 
-    const translations = vocabWord.translations || [];
-    const sentences = vocabWord.sentences || [];
-    const realExamSentences = vocabWord.real_exam_sentences || [];
+export function vocabWordToCard(word: VocabWord, uiLanguage: string = 'cn') {
+    // 提取翻译
+    let translation = '';
+    if (word.translations && Array.isArray(word.translations)) {
+        translation = word.translations
+            .map((t: any) => `${t.pos || ''} ${t.tranCn || ''}`.trim())
+            .filter(Boolean)
+            .join('；');
+    }
 
-    // 获取主要释义
-    const mainTrans = translations[0];
-    const translation = mainTrans?.tranCn || '';
-    const definition = mainTrans?.tranOther || '';
-    const pos = mainTrans?.pos || '';
+    // 提取例句
+    let example = '';
+    if (word.sentences && Array.isArray(word.sentences) && word.sentences.length > 0) {
+        const sentence = word.sentences[0];
+        example = sentence.sContent || '';
+    }
 
-    // 获取例句
-    const example = sentences[0]?.sContent || '';
-    const exampleCn = sentences[0]?.sCn || '';
+    // 提取真题例句作为 shadow sentence
+    let shadowSentence = '';
+    let shadowTranslation = '';
+    if (word.real_exam_sentences && Array.isArray(word.real_exam_sentences) && word.real_exam_sentences.length > 0) {
+        const realSentence = word.real_exam_sentences[0];
+        shadowSentence = realSentence.sContent || '';
+        // 真题例句通常没有中文翻译，留空让 AI 补充
+    } else if (word.sentences && Array.isArray(word.sentences) && word.sentences.length > 0) {
+        // 如果没有真题例句，使用普通例句
+        const sentence = word.sentences[0];
+        shadowSentence = sentence.sContent || '';
+        shadowTranslation = sentence.sCn || '';
+    }
 
-    // 获取真题例句
-    const examExample = realExamSentences[0];
+    // 提取短语搭配
+    let shortUsage = '';
+    if (word.phrases && Array.isArray(word.phrases) && word.phrases.length > 0) {
+        shortUsage = word.phrases.slice(0, 2).map((p: any) => p.pContent).join(', ');
+    }
 
     return {
-        front: vocabWord.head_word,
-        back: translation,
-        phonetic: vocabWord.us_phonetic || vocabWord.uk_phonetic || '',
-        definition: definition,
+        front: word.head_word,
+        phonetic: word.us_phonetic || word.uk_phonetic || '',
+        pos: word.translations?.[0]?.pos || '',
+        translation: translation,
+        definition: '', // 让 AI 补充英文定义
         example: example,
-        exampleCn: exampleCn,
-        pos: pos,
-        // 词库特有字段
-        realExamSentence: examExample?.sContent || null,
-        realExamSource: examExample?.sourceInfo || null,
-        memoryMethod: vocabWord.memory_method || null,
-        synonyms: vocabWord.synonyms || null,
-        phrases: vocabWord.phrases?.slice(0, 5) || null,
-        relatedWords: vocabWord.related_words || null,
-        vocabBookTitle: vocabWord.vocab_books?.title || null,
-        cefrLevel: vocabWord.vocab_books?.cefr_level || null,
-        // 标记来源
-        source: 'vocabulary_library'
+        short_usage: shortUsage,
+        shadow_sentence: shadowSentence,
+        shadow_sentence_translation: shadowTranslation,
+        root_analysis: word.memory_method || '', // 词根分析/记忆方法
+        // 额外元数据供 AI 增强使用
+        _synonyms: word.synonyms,
+        _related_words: word.related_words,
     };
 }

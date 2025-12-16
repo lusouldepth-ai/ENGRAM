@@ -2,7 +2,8 @@
 
 import OpenAI from 'openai';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
+import { fetchVocabWords } from './fetch-vocab-words';
+import { vocabWordToCard } from '@/lib/vocab-utils';
 
 const client = new OpenAI({
   baseURL: 'https://api.deepseek.com',
@@ -73,10 +74,9 @@ export async function generateCards(input: string, context?: GenerateContext, li
     }
 
     // CHECK QUOTA
-    // First check if user is PRO
     const { data: profile } = await supabase
       .from('profiles')
-      .select('tier')
+      .select('tier, english_level, learning_goal, ui_language')
       .eq('id', user.id)
       .single();
 
@@ -100,26 +100,37 @@ export async function generateCards(input: string, context?: GenerateContext, li
       throw new Error("DEEPSEEK_API_KEY is missing in .env.local");
     }
 
-    // Fetch user context if not provided
-    let level = context?.level || "Intermediate";
-    let goal = context?.goal || "General English";
-    let ui_language = context?.ui_language || "cn";
+    // Fetch user context
+    const level = context?.level || profile?.english_level || "intermediate";
+    const goal = context?.goal || profile?.learning_goal || "General English";
+    const ui_language = context?.ui_language || profile?.ui_language || "cn";
 
-    if (!context) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('english_level, learning_goal, ui_language')
-        .eq('id', user.id)
-        .single();
+    // ========== 混合模式：优先从数据库获取词汇 ==========
+    console.log("📚 [Hybrid] Attempting to fetch from vocabulary database...");
 
-      if (profile) {
-        level = profile.english_level || level;
-        goal = profile.learning_goal || goal;
-        ui_language = profile.ui_language || ui_language;
-      }
+    const vocabResult = await fetchVocabWords(input, goal, limit);
+
+    if (vocabResult.success && vocabResult.words && vocabResult.words.length > 0) {
+      console.log(`📚 [Hybrid] Found ${vocabResult.words.length} words from "${vocabResult.bookTitle}"`);
+
+      // 将数据库词汇转换为卡片格式
+      const dbCards = vocabResult.words.map(word => vocabWordToCard(word, ui_language));
+
+      // 使用 AI 增强：补充英文定义和缺失的跟读句子翻译
+      const enhancedCards = await enhanceCardsWithAI(dbCards, level, goal, ui_language);
+
+      console.log(`✅ [Hybrid] Successfully enhanced ${enhancedCards.length} cards from database`);
+      return {
+        success: true,
+        data: enhancedCards,
+        source: 'database',
+        bookTitle: vocabResult.bookTitle
+      };
     }
 
-    // 获取 CEFR 词汇指南
+    // ========== 回退：纯 AI 生成 ==========
+    console.log("🤖 [Fallback] No matching vocab book, using pure AI generation...");
+
     const cefrGuide = CEFR_VOCABULARY_GUIDE[level] || CEFR_VOCABULARY_GUIDE['intermediate'];
 
     const systemPrompt = `你是一位专业的英语词汇教育专家，精通 CEFR 标准。
@@ -164,14 +175,8 @@ export async function generateCards(input: string, context?: GenerateContext, li
     const response = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
-        {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: input
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: input }
       ],
       temperature: 1.0,
     });
@@ -179,17 +184,101 @@ export async function generateCards(input: string, context?: GenerateContext, li
     const content = response.choices[0].message.content || "[]";
     console.log("📩 [Action] Raw AI Response:", content);
 
-    // 清洗数据：去掉可能存在的 Markdown 符号
     const cleanedContent = content.replace(/```json|```/g, '').trim();
-
-    // 解析 JSON
     const cards = JSON.parse(cleanedContent);
-    console.log(`✅ [Action] Successfully parsed ${cards.length} cards.`);
+    console.log(`✅ [Action] Successfully parsed ${cards.length} cards via pure AI.`);
 
-    return { success: true, data: cards };
+    return { success: true, data: cards, source: 'ai' };
 
   } catch (error: any) {
     console.error("❌ [Action] Error:", error);
     return { success: false, error: error.message || "Failed to generate cards" };
+  }
+}
+
+// AI 增强函数：补充数据库词汇缺失的内容
+async function enhanceCardsWithAI(
+  cards: any[],
+  level: string,
+  goal: string,
+  ui_language: string
+): Promise<any[]> {
+  // 如果卡片已经很完整，直接返回
+  const needsEnhancement = cards.some(
+    card => !card.definition || !card.shadow_sentence_translation
+  );
+
+  if (!needsEnhancement) {
+    console.log("📚 [Enhance] Cards are complete, skipping AI enhancement");
+    return cards.map(card => {
+      // 移除内部元数据
+      const { _synonyms, _related_words, ...cleanCard } = card;
+      return cleanCard;
+    });
+  }
+
+  console.log("🤖 [Enhance] Using AI to fill missing fields...");
+
+  const wordsToEnhance = cards.map(c => ({
+    word: c.front,
+    translation: c.translation,
+    shadow_sentence: c.shadow_sentence,
+  }));
+
+  const enhancePrompt = `你是一位英语词汇专家。请为以下单词补充缺失的英文定义和跟读句子翻译。
+
+用户水平: ${level}
+学习目标: ${goal}
+
+需要补充的单词:
+${JSON.stringify(wordsToEnhance, null, 2)}
+
+请为每个单词输出:
+[{
+  "word": "原单词",
+  "definition": "简洁的英文定义（符合${level}水平，10词以内）",
+  "shadow_sentence_translation": "跟读句子的中文翻译（如果已有则保留原文）"
+}]
+
+只输出JSON数组。`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: enhancePrompt }
+      ],
+      temperature: 0.7,
+    });
+
+    const content = response.choices[0].message.content || "[]";
+    const cleanedContent = content.replace(/```json|```/g, '').trim();
+    const enhancements = JSON.parse(cleanedContent);
+
+    // 合并增强内容到原始卡片
+    return cards.map(card => {
+      const enhancement = enhancements.find((e: any) =>
+        e.word?.toLowerCase() === card.front?.toLowerCase()
+      );
+
+      // 移除内部元数据
+      const { _synonyms, _related_words, ...cleanCard } = card;
+
+      if (enhancement) {
+        return {
+          ...cleanCard,
+          definition: card.definition || enhancement.definition || '',
+          shadow_sentence_translation: card.shadow_sentence_translation || enhancement.shadow_sentence_translation || '',
+        };
+      }
+      return cleanCard;
+    });
+
+  } catch (error) {
+    console.error("🤖 [Enhance] AI enhancement failed, returning original cards:", error);
+    return cards.map(card => {
+      const { _synonyms, _related_words, ...cleanCard } = card;
+      return cleanCard;
+    });
   }
 }

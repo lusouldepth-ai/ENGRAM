@@ -229,6 +229,149 @@ export interface Database {
           }
         ]
       }
+      vocab_books: {
+        Row: {
+          id: string
+          book_id: string
+          title: string
+          word_count: number
+          cover_image: string | null
+          cefr_level: string | null
+          category: string | null
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          book_id: string
+          title: string
+          word_count?: number
+          cover_image?: string | null
+          cefr_level?: string | null
+          category?: string | null
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          book_id?: string
+          title?: string
+          word_count?: number
+          cover_image?: string | null
+          cefr_level?: string | null
+          category?: string | null
+          description?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      vocab_words: {
+        Row: {
+          id: string
+          book_id: string
+          word_rank: number
+          head_word: string
+          us_phonetic: string | null
+          uk_phonetic: string | null
+          translations: Json | null
+          sentences: Json | null
+          real_exam_sentences: Json | null
+          synonyms: Json | null
+          phrases: Json | null
+          memory_method: string | null
+          related_words: Json | null
+          picture_url: string | null
+          exams: Json | null
+          raw_content: Json | null
+        }
+        Insert: {
+          id?: string
+          book_id: string
+          word_rank: number
+          head_word: string
+          us_phonetic?: string | null
+          uk_phonetic?: string | null
+          translations?: Json | null
+          sentences?: Json | null
+          real_exam_sentences?: Json | null
+          synonyms?: Json | null
+          phrases?: Json | null
+          memory_method?: string | null
+          related_words?: Json | null
+          picture_url?: string | null
+          exams?: Json | null
+          raw_content?: Json | null
+        }
+        Update: {
+          id?: string
+          book_id?: string
+          word_rank?: number
+          head_word?: string
+          us_phonetic?: string | null
+          uk_phonetic?: string | null
+          translations?: Json | null
+          sentences?: Json | null
+          real_exam_sentences?: Json | null
+          synonyms?: Json | null
+          phrases?: Json | null
+          memory_method?: string | null
+          related_words?: Json | null
+          picture_url?: string | null
+          exams?: Json | null
+          raw_content?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vocab_words_book_id_fkey"
+            columns: ["book_id"]
+            referencedRelation: "vocab_books"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_vocab_progress: {
+        Row: {
+          id: string
+          user_id: string
+          book_id: string
+          current_word_rank: number
+          completed_count: number
+          started_at: string
+          last_studied_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          book_id: string
+          current_word_rank?: number
+          completed_count?: number
+          started_at?: string
+          last_studied_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          book_id?: string
+          current_word_rank?: number
+          completed_count?: number
+          started_at?: string
+          last_studied_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_vocab_progress_book_id_fkey"
+            columns: ["book_id"]
+            referencedRelation: "vocab_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_vocab_progress_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

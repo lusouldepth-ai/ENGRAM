@@ -68,17 +68,20 @@ export function CommandBar() {
   const handleSave = () => {
     startSaving(async () => {
       const selectedCards = candidates.filter((_, i) => selectedIndices.has(i));
-      const deckTitle = input.slice(0, 20) + (input.length > 20 ? '...' : ''); // Simple deck title
+      // 强制使用"我的生词本"作为目标 Deck，避免生成无数个小 Deck
+      const deckTitle = "我的生词本";
       const result = await saveCards(selectedCards, deckTitle);
 
       if (result.success) {
         setStep('saved');
-        // Reset after delay or redirect
-        setTimeout(() => {
-          setStep('idle');
-          setInput('');
-          setCandidates([]);
-        }, 2000);
+        // 保存成功后直接跳转到学习页面
+        if (result.deckId) {
+          router.push(`/study/${result.deckId}`);
+        }
+        // 重置状态
+        setStep('idle');
+        setInput('');
+        setCandidates([]);
       } else {
         console.error(result.error);
         // Handle auth error or other
