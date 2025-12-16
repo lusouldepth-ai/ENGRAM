@@ -284,3 +284,31 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
   };
 }
 
+/**
+ * 获取今天已复习的卡片数量（用于进度条显示）
+ */
+export async function getTodayReviewedCount(): Promise<number> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return 0;
+
+  // Get start of today (midnight) in ISO format
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const { data, error } = await supabase
+    .from('study_logs')
+    .select('card_id', { count: 'exact', head: false })
+    .eq('user_id', user.id)
+    .gte('reviewed_at', todayStart.toISOString());
+
+  if (error) {
+    console.error("Error fetching today's review count:", error);
+    return 0;
+  }
+
+  // Count unique card IDs (in case a card was reviewed multiple times today)
+  const uniqueCardIds = new Set(data?.map((log: any) => log.card_id) || []);
+  return uniqueCardIds.size;
+}

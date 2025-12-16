@@ -96,7 +96,7 @@ export function StudyCardBack({
             onMouseUp={handleSelection}
         >
             {/* Sticky Header */}
-            <div className="p-8 border-b border-neutral-100 bg-neutral-50/50 sticky top-0 backdrop-blur-sm z-20">
+            <div className="p-8 border-b border-neutral-100 bg-neutral-50 sticky top-0 z-20">
                 <div className="flex justify-between items-start">
                     <div>
                         <h2 className="text-4xl font-bold text-neutral-900 mb-2">

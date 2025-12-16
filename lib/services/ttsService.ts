@@ -91,18 +91,18 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
             console.warn('AudioContext not running; TTS playback may be blocked by browser.');
         }
         const cacheKey = `${text.trim()}-${accent}`;
-        
+
         if (ttsCache.has(cacheKey)) {
             console.log('TTS: Cache hit for', cacheKey);
             const audioBuffer = ttsCache.get(cacheKey)!;
-            
+
             const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
             source.playbackRate.value = speed;
             source.connect(ctx.destination);
             console.log('TTS: starting cached audio, duration', audioBuffer.duration, 's');
             source.start();
-            
+
             return new Promise((resolve) => {
                 source.onended = () => {
                     console.log('TTS: cached audio ended');
@@ -115,13 +115,14 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
         const result = await generateSpeech(text, accent);
 
         if (!result.success || !result.audioData) {
-             if (result.error === "QUOTA_EXCEEDED") {
+            if (result.error === "QUOTA_EXCEEDED") {
                 alert("Gemini TTS Limit Reached: You have exceeded the free tier usage limit. Please wait a moment.");
-             } else {
+            } else {
                 console.error("TTS Generation failed:", result.error);
                 // alert("TTS Error: " + result.error);
-             }
-             return;
+            }
+            fallbackToBrowserTTS(text, speed);
+            return;
         }
 
         const bytes = base64ToBytes(result.audioData);
@@ -133,7 +134,7 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
             // audio/mpeg or other compressed formats
             audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
         }
-        
+
         // Store in cache (include mimeType in key to avoid mismatch)
         ttsCache.set(`${cacheKey}-${result.mimeType}`, audioBuffer);
 
@@ -171,6 +172,20 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
 
     } catch (error: any) {
         console.error("TTS failed:", error);
-        // alert("TTS Error: " + (error instanceof Error ? error.message : String(error)));
+        fallbackToBrowserTTS(text, speed);
+    }
+};
+
+const fallbackToBrowserTTS = (text: string, speed: number) => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+        console.log("🔊 [TTS] Falling back to browser speech synthesis");
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = speed;
+        // Try to select an English voice
+        const voices = window.speechSynthesis.getVoices();
+        const enVoice = voices.find(v => v.lang.startsWith('en'));
+        if (enVoice) utterance.voice = enVoice;
+
+        window.speechSynthesis.speak(utterance);
     }
 };

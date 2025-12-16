@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
 import { getIntervalPreview } from '@/app/actions/review-actions';
 import { checkCardTranslation, fixCardTranslation } from '@/app/actions/fix-translation-action';
+import { playHighQualitySpeech } from '@/lib/services/ttsService';
 import { StudyCardFront } from './StudyCardFront';
 import { StudyCardBack } from './StudyCardBack';
 
@@ -174,17 +175,20 @@ export function StudyCard({
   };
 
   const handlePlay = () => {
+    console.log('🔊 [StudyCard] handlePlay called');
     stopAudio();
     speakViaWebAPI(rawTarget);
   };
 
   const handleExamplePlay = (text: string) => {
+    console.log('🔊 [StudyCard] handleExamplePlay called for:', text);
     stopAudio();
     if (!text) return;
     speakViaWebAPI(text);
   };
 
   const speakViaWebAPI = async (text: string, speed: number = 1.0, setState: (val: boolean) => void = setIsSpeaking) => {
+    console.log('🔊 [StudyCard] speakViaWebAPI called for:', text);
     if (typeof window === 'undefined') {
       console.warn('Not in browser environment');
       return;
@@ -199,8 +203,6 @@ export function StudyCard({
     setState(true);
 
     try {
-      // Dynamically import to avoid SSR issues, although ttsService is now safe
-      const { playHighQualitySpeech } = await import('@/lib/services/ttsService');
       const accentType = accent === 'uk' ? 'UK' : 'US';
       await playHighQualitySpeech(text, accentType, speed);
     } catch (error) {
@@ -336,10 +338,7 @@ export function StudyCard({
     <div className="w-full max-w-4xl mx-auto p-4 flex flex-col items-center justify-center min-h-[600px]">
       {/* Progress Bar */}
       <div className="w-full mb-6">
-        <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
-          <span>今日进度</span>
-          <span className="font-medium">{completedCards} / {totalCards} 张</span>
-        </div>
+
         <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
           <div
             className="h-2 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transition-all duration-500 ease-out"

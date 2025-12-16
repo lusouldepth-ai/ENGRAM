@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Check, Sparkles, Plus } from 'lucide-react';
+import { Loader2, Plus, Command, Check } from 'lucide-react';
 import { generateCards } from '@/app/actions/generate-cards';
 import { saveCards, type CardData } from '@/app/actions/save-cards';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -19,6 +18,8 @@ export function CommandBar() {
   const [isGenerating, startGenerating] = useTransition();
   const [isSaving, startSaving] = useTransition();
   const [step, setStep] = useState<'idle' | 'generating' | 'review' | 'saved'>('idle');
+
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const handleGenerate = () => {
@@ -27,30 +28,42 @@ export function CommandBar() {
     startGenerating(async () => {
       try {
         const result = await generateCards(input);
-
-        // Debug log to see what we got back
-        console.log("Frontend received:", result);
-
         if (result.success && Array.isArray(result.data)) {
           setCandidates(result.data);
-          // Default select all
-          setSelectedIndices(new Set(result.data.map((_: any, i: number) => i)));
+          setSelectedIndices(new Set(result.data.map((_, i) => i)));
           setStep('review');
         } else {
           setStep('idle');
-
           if (result.error === "QUOTA_EXCEEDED") {
             router.push('/pricing');
             return;
           }
-
-          console.error("Error from backend:", result.error);
           alert("Failed to generate cards: " + (result.error || "Unknown error"));
         }
       } catch (e) {
         console.error("Critical error in handleGenerate:", e);
         setStep('idle');
         alert("An unexpected error occurred.");
+      }
+    });
+  };
+
+  const handleSave = () => {
+    startSaving(async () => {
+      const selectedCards = candidates.filter((_, i) => selectedIndices.has(i));
+      const deckTitle = "我的生词本";
+      const result = await saveCards(selectedCards, deckTitle);
+
+      if (result.success) {
+        setStep('saved');
+        if (result.deckId) {
+          router.push(`/study/${result.deckId}`);
+        }
+        setStep('idle');
+        setInput('');
+        setCandidates([]);
+      } else {
+        alert("Failed to save. Please make sure you are logged in.");
       }
     });
   };
@@ -65,144 +78,128 @@ export function CommandBar() {
     setSelectedIndices(newSet);
   };
 
-  const handleSave = () => {
-    startSaving(async () => {
-      const selectedCards = candidates.filter((_, i) => selectedIndices.has(i));
-      // 强制使用"我的生词本"作为目标 Deck，避免生成无数个小 Deck
-      const deckTitle = "我的生词本";
-      const result = await saveCards(selectedCards, deckTitle);
-
-      if (result.success) {
-        setStep('saved');
-        // 保存成功后直接跳转到学习页面
-        if (result.deckId) {
-          router.push(`/study/${result.deckId}`);
-        }
-        // 重置状态
-        setStep('idle');
-        setInput('');
-        setCandidates([]);
-      } else {
-        console.error(result.error);
-        // Handle auth error or other
-        alert("Failed to save. Please make sure you are logged in (Auth is not yet fully implemented in UI).");
-      }
-    });
-  };
+  // Focus input helper
+  const focusInput = () => {
+    if (step === 'idle' && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 space-y-8">
+    // Replicating the "New Design" container logic but inside CommandBar component
+    <div className="w-full bg-white/50 backdrop-blur-sm rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden">
 
-      {/* Input Section */}
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-          <Sparkles className={cn("w-5 h-5 transition-colors", step === 'idle' ? "text-braun-accent" : "text-gray-400")} />
-        </div>
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && step === 'idle' && input.trim()) {
-              handleGenerate();
-            }
-          }}
-          placeholder="What do you want to learn today?"
-          className="pl-12 pr-4 py-6 text-lg bg-white border-none shadow-sm rounded-xl focus-visible:ring-1 focus-visible:ring-braun-accent/50 placeholder:text-gray-400"
-          disabled={step !== 'idle'}
-        />
-        <div className="absolute inset-y-0 right-2 flex items-center">
-          {step === 'idle' && input.trim() && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-xs text-gray-500 hover:text-braun-accent"
-              onClick={handleGenerate}
-            >
-              Cmd+K
-            </Button>
-          )}
+      {/* Top Bar / Header Area - Minimalist Input */}
+      <div
+        className="border-b border-gray-200 p-4 md:p-6 flex flex-col gap-2 cursor-text"
+        onClick={focusInput}
+      >
+        <div className="flex items-center gap-3 text-lg md:text-2xl font-medium text-braun-text relative h-10 md:h-12">
+          {/* The actual input, clean and full width */}
+          <input
+            ref={inputRef}
+            className="bg-transparent border-none outline-none text-braun-text placeholder-gray-300 w-full h-full p-0 m-0"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && step === 'idle' && input.trim()) {
+                handleGenerate();
+              }
+            }}
+            placeholder="What do you want to learn today?"
+            disabled={step !== 'idle'}
+            autoFocus
+          />
+          {/* Loading Indicator */}
+          {step === 'generating' && <Loader2 className="w-5 h-5 animate-spin text-braun-accent" />}
         </div>
       </div>
 
-      {/* Loading State */}
-      {step === 'generating' && (
-        <div className="space-y-3">
-          <Skeleton className="h-16 w-full rounded-xl" />
-          <Skeleton className="h-16 w-full rounded-xl" />
-          <Skeleton className="h-16 w-full rounded-xl" />
-        </div>
-      )}
-
-      {/* Review List */}
-      {step === 'review' && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-medium text-gray-500">Generated {candidates.length} cards</h3>
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || selectedIndices.size === 0}
-              className="bg-braun-accent hover:bg-orange-700 text-white rounded-full px-6 transition-all"
+      {/* Content Area */}
+      <div className="bg-gray-50/50">
+        <AnimatePresence mode="wait">
+          {/* Loading State Skeleton */}
+          {step === 'generating' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-4 space-y-3"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Save to Deck
-            </Button>
-          </div>
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </motion.div>
+          )}
 
-          <div className="grid gap-3">
-            {candidates.map((card, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className={cn(
-                  "group flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer",
-                  selectedIndices.has(i)
-                    ? "bg-white border-braun-accent/30 shadow-sm"
-                    : "bg-gray-50 border-transparent opacity-60 hover:opacity-100"
-                )}
-                onClick={() => toggleSelection(i)}
-              >
-                <Checkbox
-                  checked={selectedIndices.has(i)}
-                  onCheckedChange={() => toggleSelection(i)}
-                  className="mt-1 data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between mb-1">
-                    <h4 className="font-semibold text-braun-text text-lg truncate">{card.front}</h4>
-                    <span className="text-xs text-gray-400 font-mono">{card.phonetic}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">{card.definition}</p>
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span className="bg-gray-100 px-2 py-0.5 rounded">{card.pos}</span>
-                    <span className="truncate max-w-[200px]">{card.translation}</span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
+          {/* Review List */}
+          {step === 'review' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-4"
+            >
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-sm font-medium text-gray-500">Generated {candidates.length} cards</h3>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || selectedIndices.size === 0}
+                  className="bg-braun-accent hover:bg-orange-700 text-white rounded-full px-6 transition-all"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                  Save
+                </Button>
+              </div>
 
-      {/* Saved State */}
-      {step === 'saved' && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center py-12"
-        >
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8" />
-          </div>
-          <h3 className="text-xl font-semibold text-braun-text">Saved to Deck</h3>
-          <p className="text-gray-500">Ready for your review session.</p>
-        </motion.div>
-      )}
+              <div className="grid gap-3">
+                {candidates.map((card, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className={cn(
+                      "group flex items-start gap-4 p-4 rounded-xl border transition-all cursor-pointer bg-white",
+                      selectedIndices.has(i)
+                        ? "border-braun-accent/30 shadow-sm"
+                        : "border-gray-100 opacity-60 hover:opacity-100"
+                    )}
+                    onClick={() => toggleSelection(i)}
+                  >
+                    <Checkbox
+                      checked={selectedIndices.has(i)}
+                      onCheckedChange={() => toggleSelection(i)}
+                      className="mt-1 data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-braun-text truncate">{card.front}</h4>
+                        <span className="text-xs text-gray-400 font-mono">/{card.phonetic}/</span>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-1">{card.definition}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Saved State */}
+          {step === 'saved' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-8 text-center"
+            >
+              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Check className="w-6 h-6" />
+              </div>
+              <p className="text-braun-text font-medium">Saved to Deck</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -133,7 +133,7 @@ export default function DeckDetailClient({ deck }: DeckDetailClientProps) {
                         删除
                     </Button>
                     <Button
-                        onClick={() => router.push('/review')}
+                        onClick={() => router.push('/dashboard')}
                         className="bg-braun-accent hover:bg-braun-accent/90 gap-2"
                     >
                         <Play className="w-4 h-4" />

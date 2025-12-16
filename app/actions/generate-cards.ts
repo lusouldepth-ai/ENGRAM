@@ -100,15 +100,31 @@ export async function generateCards(input: string, context?: GenerateContext, li
       throw new Error("DEEPSEEK_API_KEY is missing in .env.local");
     }
 
-    // Fetch user context
-    const level = context?.level || profile?.english_level || "intermediate";
-    const goal = context?.goal || profile?.learning_goal || "General English";
+    // Fetch user context (default values)
+    let level = context?.level || profile?.english_level || "intermediate";
+    let goal = context?.goal || profile?.learning_goal || "General English";
     const ui_language = context?.ui_language || profile?.ui_language || "cn";
 
-    // ========== 混合模式：优先从数据库获取词汇 ==========
-    console.log("📚 [Hybrid] Attempting to fetch from vocabulary database...");
+    // ========== 1. AI 意图分析 (Intent Analysis) ==========
+    console.log("🧠 [Analysis] Analyzing user intent...");
+    const analysis = await analyzeUserIntent(input, level, goal);
 
-    const vocabResult = await fetchVocabWords(input, goal, limit);
+    // Update context with analyzed results
+    if (analysis) {
+      console.log("🧠 [Analysis] Result:", analysis);
+      level = analysis.user_level || level;
+      goal = analysis.goal || goal;
+      // If the user input was just a keyword (e.g. "apple"), the analysis might return it back.
+      // If it became "Fruits", that's better for search.
+    }
+
+    const searchTerm = analysis?.search_terms || input;
+
+
+    // ========== 2. 混合模式：优先从数据库获取词汇 ==========
+    console.log(`📚 [Hybrid] Searching database for: "${searchTerm}"`);
+
+    const vocabResult = await fetchVocabWords(searchTerm, goal, limit);
 
     if (vocabResult.success && vocabResult.words && vocabResult.words.length > 0) {
       console.log(`📚 [Hybrid] Found ${vocabResult.words.length} words from "${vocabResult.bookTitle}"`);
@@ -116,10 +132,10 @@ export async function generateCards(input: string, context?: GenerateContext, li
       // 将数据库词汇转换为卡片格式
       const dbCards = vocabResult.words.map(word => vocabWordToCard(word, ui_language));
 
-      // 使用 AI 增强：补充英文定义和缺失的跟读句子翻译
+      // 使用 AI 增强
       const enhancedCards = await enhanceCardsWithAI(dbCards, level, goal, ui_language);
 
-      console.log(`✅ [Hybrid] Successfully enhanced ${enhancedCards.length} cards from database`);
+      console.log(`✅ [Hybrid] Successfully enhanced ${enhancedCards.length} cards`);
       return {
         success: true,
         data: enhancedCards,
@@ -128,71 +144,96 @@ export async function generateCards(input: string, context?: GenerateContext, li
       };
     }
 
-    // ========== 回退：纯 AI 生成 ==========
-    console.log("🤖 [Fallback] No matching vocab book, using pure AI generation...");
+    // ========== 3. 回退：纯 AI 生成 ==========
+    console.log("🤖 [Fallback] No matching vocab book, generating with AI context...");
 
     const cefrGuide = CEFR_VOCABULARY_GUIDE[level] || CEFR_VOCABULARY_GUIDE['intermediate'];
+    const topic = analysis?.core_topic || input;
 
-    const systemPrompt = `你是一位专业的英语词汇教育专家，精通 CEFR 标准。
+    const systemPrompt = `你是一位专业的英语词汇教育专家。
 
-## 学习者档案
-- 学习目标：${goal}
-- 英语水平：${level}
-- 主题输入：${input}
-
-## CEFR 词汇标准（必须严格遵守！）
-当前用户水平对应的词汇要求：
-- 词汇量范围：${cefrGuide.wordCount}
-- 词频标准：${cefrGuide.frequency}
-- 词汇特征：${cefrGuide.characteristics}
-- 难度参考示例：${cefrGuide.examples}
+## 学习者画像
+- 当前水平: ${level} (${cefrGuide.wordCount})
+- 学习目标: ${goal}
+- 核心需求: ${topic}
 
 ## 任务
-生成恰好 ${limit} 个词汇卡片。
+生成 ${limit} 个最能帮助该用户达成目标的英语词汇卡片。
 
-## 严格规则
-1. **词汇难度必须匹配**：所有词汇必须在 ${cefrGuide.frequency} 范围内，不能超出用户水平！
-2. **场景相关性**：词汇必须与 ${goal} 高度相关
-3. **例句难度匹配**：例句也必须符合用户水平，使用简单句式
-4. **不要太简单也不要太难**：参考上述难度示例
+## 规则
+1. **相关性**: 单词必须与 "${topic}" 强相关。
+2. **难度适配**: 单词难度必须符合 ${level} 水平。不要太简单也不要太难。
+3. **实用优先**: 选择高频、实用的词汇，避免生僻词。
+4. **输出语言**: 翻译和解释使用${ui_language === 'cn' ? '中文' : 'English'}。
 
-## 输出格式（JSON数组，无markdown）
+## 输出格式 (JSON Only)
 [{
   "front": "单词",
   "phonetic": "/音标/",
   "pos": "词性",
-  "translation": "${ui_language === 'cn' ? '中文释义' : 'English definition'}",
-  "definition": "英文解释（符合${level}水平的简单解释）",
-  "example": "简短例句（10词以内，适合听写）",
-  "short_usage": "常用搭配（3-6词）",
-  "shadow_sentence": "跟读句子（12-15词，与${goal}相关）",
-  "shadow_sentence_translation": "上述跟读句子的中文翻译",
-  "root_analysis": "词根词源"
-}]
-
-只输出JSON数组，不要任何其他文字。`;
+  "translation": "释义",
+  "definition": "英文定义 (Simple English)",
+  "example": "例句 (High relevance)",
+  "short_usage": "常用搭配",
+  "shadow_sentence": "跟读句子 (First-person perspective, useful for speaking)",
+  "shadow_sentence_translation": "跟读句子翻译"
+}]`;
 
     const response = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: input }
+        { role: 'user', content: `请为我定制关于 "${input}" 的单词卡片。` }
       ],
-      temperature: 1.0,
+      temperature: 1.1, // Slightly higher creativity for generation
     });
 
     const content = response.choices[0].message.content || "[]";
-    console.log("📩 [Action] Raw AI Response:", content);
+    // console.log("📩 [Action] Raw AI Response:", content);
 
     const cleanedContent = content.replace(/```json|```/g, '').trim();
     const cards = JSON.parse(cleanedContent);
-    console.log(`✅ [Action] Successfully parsed ${cards.length} cards via pure AI.`);
+    console.log(`✅ [Action] Generated ${cards.length} cards via AI.`);
 
     return { success: true, data: cards, source: 'ai' };
 
   } catch (error: any) {
     console.error("❌ [Action] Error:", error);
     return { success: false, error: error.message || "Failed to generate cards" };
+  }
+}
+
+// 意图分析函数
+async function analyzeUserIntent(input: string, currentLevel: string, currentGoal: string) {
+  try {
+    const prompt = `你是一个即时学习助手。请分析用户的输入，提取学习意图。
+
+用户输入: "${input}"
+当前档案: Level=${currentLevel}, Goal=${currentGoal}
+
+请分析并返回以下 JSON 格式（不要废话）：
+{
+  "core_topic": "核心话题（英文，例如 Travel, Business, Daily Life）",
+  "user_level": "推测水平（beginner/elementary/intermediate/upper_intermediate/advanced）",
+  "search_terms": "用于搜索数据库的最佳关键词（英文，1-3个词）",
+  "goal": "推测的学习目标（英文）"
+}
+
+如果用户输入的是自我介绍（如"我学了3年英语..."），请根据描述更新 user_level。
+如果用户输入的是具体话题（如"我要去机场"），提取 core_topic="Airport/Travel"。`;
+
+    const response = await client.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [{ role: 'system', content: prompt }],
+      temperature: 0.1, // Low temperature for extraction
+      response_format: { type: 'json_object' }
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    return result;
+  } catch (e) {
+    console.warn("Intent analysis failed, skipping:", e);
+    return null;
   }
 }
 

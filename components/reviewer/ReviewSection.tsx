@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { StudyCard } from "@/components/reviewer/StudyCard";
-import { getDueCards, reviewCard } from "@/app/actions/review-actions";
+import { getDueCards, reviewCard, getTodayReviewedCount } from "@/app/actions/review-actions";
 import { Database } from "@/lib/supabase/types";
 
 type Card = Database["public"]["Tables"]["cards"]["Row"];
@@ -23,6 +23,8 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
   const [isSubmitting, startTransition] = useTransition();
   const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(null);
   const [initialCardCount, setInitialCardCount] = useState(0);
+  const [sessionCompletedCount, setSessionCompletedCount] = useState(0);
+  const [todayReviewedCount, setTodayReviewedCount] = useState(0);
 
   // Debug: Log received profile
   console.log('📋 [ReviewSection] Received profile:', profile);
@@ -31,8 +33,10 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
   useEffect(() => {
     const loadCards = async () => {
       const dueCards = await getDueCards();
+      const reviewedToday = await getTodayReviewedCount();
       setCards(dueCards);
       setInitialCardCount(dueCards.length);
+      setTodayReviewedCount(reviewedToday);
       setIsLoading(false);
     };
     loadCards();
@@ -58,6 +62,8 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
       if (result.success) {
         setIsFlipped(false);
         setAnswerCorrect(null);
+        setSessionCompletedCount(prev => prev + 1);
+        setTodayReviewedCount(prev => prev + 1);
 
         // Move to next card
         if (currentIndex < cards.length - 1) {
@@ -104,8 +110,8 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
         onRate={handleReview}
         userTier={profile?.tier}
         accentPreference={profile?.accent_preference}
-        totalCards={initialCardCount}
-        completedCards={currentIndex}
+        totalCards={initialCardCount + todayReviewedCount}
+        completedCards={todayReviewedCount}
       />
     </div>
   );
