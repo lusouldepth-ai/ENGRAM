@@ -114,6 +114,10 @@ export async function generateCards(input: string, context?: GenerateContext, li
       console.log("🧠 [Analysis] Result:", analysis);
       level = analysis.user_level || level;
       goal = analysis.goal || goal;
+      if (analysis.quantity && typeof analysis.quantity === 'number') {
+        limit = Math.min(Math.max(analysis.quantity, 1), 50); // Clamp between 1 and 50
+        console.log("🔢 [Analysis] User requested specific quantity:", limit);
+      }
       // If the user input was just a keyword (e.g. "apple"), the analysis might return it back.
       // If it became "Fruits", that's better for search.
     }
@@ -166,18 +170,21 @@ export async function generateCards(input: string, context?: GenerateContext, li
 3. **实用优先**: 选择高频、实用的词汇，避免生僻词。
 4. **输出语言**: 翻译和解释使用${ui_language === 'cn' ? '中文' : 'English'}。
 
-## 输出格式 (JSON Only)
-[{
-  "front": "单词",
-  "phonetic": "/音标/",
-  "pos": "词性",
-  "translation": "释义",
-  "definition": "英文定义 (Simple English)",
-  "example": "例句 (High relevance)",
-  "short_usage": "常用搭配",
-  "shadow_sentence": "跟读句子 (First-person perspective, useful for speaking)",
-  "shadow_sentence_translation": "跟读句子翻译"
-}]`;
+## 输出格式 (JSON Object)
+请返回一个包含 "cards" 数组的 JSON 对象：
+{
+  "cards": [{
+    "front": "单词",
+    "phonetic": "/音标/",
+    "pos": "词性",
+    "translation": "释义",
+    "definition": "英文定义 (Simple English)",
+    "example": "例句 (High relevance)",
+    "short_usage": "常用搭配",
+    "shadow_sentence": "跟读句子 (First-person perspective, useful for speaking)",
+    "shadow_sentence_translation": "跟读句子翻译"
+  }]
+}`;
 
     const response = await client.chat.completions.create({
       model: 'deepseek-chat',
@@ -185,14 +192,13 @@ export async function generateCards(input: string, context?: GenerateContext, li
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `请为我定制关于 "${input}" 的单词卡片。` }
       ],
-      temperature: 1.1, // Slightly higher creativity for generation
+      temperature: 1.1,
+      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0].message.content || "[]";
-    // console.log("📩 [Action] Raw AI Response:", content);
-
-    const cleanedContent = content.replace(/```json|```/g, '').trim();
-    const cards = JSON.parse(cleanedContent);
+    const content = response.choices[0].message.content || "{}";
+    const parsed = JSON.parse(content);
+    const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
     console.log(`✅ [Action] Generated ${cards.length} cards via AI.`);
 
     return { success: true, data: cards, source: 'ai' };
@@ -216,7 +222,8 @@ async function analyzeUserIntent(input: string, currentLevel: string, currentGoa
   "core_topic": "核心话题（英文，例如 Travel, Business, Daily Life）",
   "user_level": "推测水平（beginner/elementary/intermediate/upper_intermediate/advanced）",
   "search_terms": "用于搜索数据库的最佳关键词（英文，1-3个词）",
-  "goal": "推测的学习目标（英文）"
+  "goal": "推测的学习目标（英文）",
+  "quantity": "用户明确要求的单词数量（数字，默认 null，如果提到'20个'则为20）"
 }
 
 如果用户输入的是自我介绍（如"我学了3年英语..."），请根据描述更新 user_level。
@@ -274,14 +281,16 @@ async function enhanceCardsWithAI(
 需要补充的单词:
 ${JSON.stringify(wordsToEnhance, null, 2)}
 
-请为每个单词输出:
-[{
-  "word": "原单词",
-  "definition": "简洁的英文定义（符合${level}水平，10词以内）",
-  "shadow_sentence_translation": "跟读句子的中文翻译（如果已有则保留原文）"
-}]
 
-只输出JSON数组。`;
+请为每个单词输出 (JSON Object):
+{
+  "enhancements": [{
+    "word": "原单词",
+    "definition": "简洁的英文定义（符合${level}水平，10词以内）",
+    "shadow_sentence_translation": "跟读句子的中文翻译（如果已有则保留原文）"
+  }]
+}
+`;
 
   try {
     const response = await client.chat.completions.create({
@@ -290,11 +299,12 @@ ${JSON.stringify(wordsToEnhance, null, 2)}
         { role: 'system', content: enhancePrompt }
       ],
       temperature: 0.7,
+      response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0].message.content || "[]";
-    const cleanedContent = content.replace(/```json|```/g, '').trim();
-    const enhancements = JSON.parse(cleanedContent);
+    const content = response.choices[0].message.content || "{}";
+    const parsed = JSON.parse(content);
+    const enhancements = Array.isArray(parsed.enhancements) ? parsed.enhancements : [];
 
     // 合并增强内容到原始卡片
     return cards.map(card => {

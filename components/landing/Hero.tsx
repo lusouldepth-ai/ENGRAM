@@ -165,7 +165,7 @@ export function Hero() {
                {/* Body: Conditional Rendering */}
                {step === 'idle' ? (
                   /* Original Demo Content */
-                  <div className="grid md:grid-cols-2 h-[400px] bg-[#F9F9F7]">
+                  <div className="grid md:grid-cols-2 h-[500px] bg-[#F9F9F7]">
 
                      {/* Left List */}
                      <div className="p-6 border-r border-gray-200 hidden md:block overflow-y-auto">
@@ -216,7 +216,7 @@ export function Hero() {
                   </div>
                ) : (
                   /* Real Functionality Content (Card Generation Results) */
-                  <div className="h-[400px] bg-gray-50/50 overflow-hidden relative">
+                  <div className="h-[500px] bg-gray-50/50 overflow-hidden relative">
                      <AnimatePresence mode="wait">
                         {/* Loading State */}
                         {step === 'generating' && (
@@ -286,7 +286,7 @@ export function Hero() {
                               </div>
 
                               {/* Right Column: Preview Detail */}
-                              <div className="bg-[#F4F4F0] p-6 md:p-12 flex flex-col items-center justify-center relative overflow-hidden">
+                              <div className="bg-[#F4F4F0] p-6 md:p-8 flex flex-col items-center justify-center relative overflow-hidden h-full">
                                  <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 absolute top-6 left-6">Preview</div>
 
                                  {focusedIndex !== null && candidates[focusedIndex] ? (
@@ -295,10 +295,10 @@ export function Hero() {
                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                        animate={{ opacity: 1, y: 0, scale: 1 }}
                                        transition={{ duration: 0.2 }}
-                                       className="w-full max-w-sm aspect-square bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 md:p-8 relative"
+                                       className="w-full max-w-[320px] aspect-square bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 relative max-h-[85%]"
                                     >
                                        {candidates[focusedIndex].phonetic && (
-                                          <div className="mb-2 md:mb-3 text-gray-400 text-xs md:text-sm font-mono tracking-wide">
+                                          <div className="mb-2 text-gray-400 text-xs md:text-sm font-mono tracking-wide">
                                              /{candidates[focusedIndex].phonetic}/
                                           </div>
                                        )}
