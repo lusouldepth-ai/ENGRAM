@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback, useState } from "react";
-import { motion, useMotionValue, useSpring, animate, useTransform } from "framer-motion";
+import React, { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import {
+    motion,
+    useScroll,
+    useTransform,
+    MotionValue,
+    useSpring,
+    useMotionValueEvent
+} from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { CardData } from "@/app/actions/save-cards";
@@ -14,88 +21,80 @@ interface WheelPickerProps {
     selectedIndices: Set<number>;
 }
 
-// Constants for the wheel picker
-const ITEM_HEIGHT = 56;
-const VISIBLE_COUNT = 7;
-const WHEEL_RADIUS = (ITEM_HEIGHT * VISIBLE_COUNT) / Math.PI;
+// --- Configuration ---
+const ITEM_HEIGHT = 64; // Slightly taller for better touch target
+const VISIBLE_ITEMS = 5; // Odd number works best
+const PERSPECTIVE = 1000;
+const WHEEL_RADIUS = 200; // Controls how "curved" the cylinder feels
 
-// Throttled tick sound player using Web Audio API
-const createTickPlayer = () => {
-    let lastPlayTime = 0;
-    const THROTTLE_MS = 50; // Minimum 50ms between ticks
-    let audioContext: AudioContext | null = null;
+// --- Audio Hook ---
+function useWheelSound(selectedIndex: number, soundPath: string = "/sounds/tick.wav") {
+    // Refs to manage audio context and throttling
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const lastPlayedIndex = useRef<number>(selectedIndex);
+    const lastPlayTime = useRef<number>(0);
+    const THROTTLE_MS = 60; // Adjust for natural feel
 
-    return () => {
-        if (typeof window === "undefined") return;
+    // Preload audio buffer if possible (optional optimization) or just fetch on demand
+    // For simplicity and robustness with changing files, we'll use a simple HTMLAudioElement approach first 
+    // or Web Audio API if low latency is critical. 
+    // Given the requirement for "Machine Gun" prevention, Web Audio API is better for latency.
 
+    useEffect(() => {
+        // Initialize AudioContext on first interaction if possible, 
+        // but browsers block it until gesture. We'll handle it lazily.
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+            audioContextRef.current = new AudioContextClass();
+        }
+        return () => {
+            audioContextRef.current?.close();
+        };
+    }, []);
+
+    const playClick = useCallback(() => {
         const now = Date.now();
-        if (now - lastPlayTime < THROTTLE_MS) return;
-        lastPlayTime = now;
+        if (now - lastPlayTime.current < THROTTLE_MS) return;
 
         try {
-            // Reuse or create AudioContext
-            if (!audioContext || audioContext.state === "closed") {
+            // Lazy init logic again if closed
+            if (!audioContextRef.current) {
                 const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                if (!AudioContextClass) return;
-                audioContext = new AudioContextClass();
+                if (AudioContextClass) audioContextRef.current = new AudioContextClass();
             }
 
-            // Resume if suspended (required for some browsers)
-            if (audioContext.state === "suspended") {
-                audioContext.resume();
-            }
+            const ctx = audioContextRef.current;
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume();
 
-            const ctx = audioContext;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+            // create a short high-frequency tick using oscillator for zero-latency fallback 
+            // OR fetch the file. 
+            // User specifically asked to use the file.
 
-            // Crisp, short tick sound like iOS picker
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(1800, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.02);
+            // Let's use a simple HTML5 Audio object for the file playback which is easier to implement accurately for a specific file resource
+            // but might have slight latency.
+            // "Short crisp tick" from file.
 
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+            const audio = new Audio(soundPath);
+            audio.volume = 0.4;
+            audio.play().catch(e => {
+                // Ignore autoplay errors
+            });
 
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 0.03);
+            lastPlayTime.current = now;
         } catch (e) {
-            console.warn("Tick sound failed:", e);
+            console.error("Audio play error", e);
         }
-    };
-};
+    }, [soundPath]);
 
-// File-based tick sound player (for custom tick.mp3)
-const createFileTickPlayer = (audioPath: string = "/sounds/tick.mp3") => {
-    let lastPlayTime = 0;
-    const THROTTLE_MS = 50;
-    let audioElement: HTMLAudioElement | null = null;
-
-    return () => {
-        if (typeof window === "undefined") return;
-
-        const now = Date.now();
-        if (now - lastPlayTime < THROTTLE_MS) return;
-        lastPlayTime = now;
-
-        try {
-            if (!audioElement) {
-                audioElement = new Audio(audioPath);
-                audioElement.volume = 0.3;
-            }
-            audioElement.currentTime = 0;
-            audioElement.play().catch(() => { });
-        } catch (e) {
-            console.warn("Audio playback failed:", e);
+    useEffect(() => {
+        if (selectedIndex !== lastPlayedIndex.current) {
+            playClick();
+            lastPlayedIndex.current = selectedIndex;
         }
-    };
-};
+    }, [selectedIndex, playClick]);
+}
 
-// Use Web Audio API by default (no external file needed)
-const playTickSound = createTickPlayer();
 
 export function WheelPicker({
     items,
@@ -105,318 +104,224 @@ export function WheelPicker({
     selectedIndices
 }: WheelPickerProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const isDragging = useRef(false);
-    const lastY = useRef(0);
-    const velocity = useRef(0);
-    const animationFrame = useRef<number | null>(null);
-    const lastTickIndex = useRef(selectedIndex);
+    const isScrollingRef = useRef(false);
 
-    // Motion value for smooth scroll position
-    const scrollOffset = useMotionValue(selectedIndex * ITEM_HEIGHT);
-    const springOffset = useSpring(scrollOffset, {
-        stiffness: 300,
-        damping: 30,
-        mass: 0.8
+    // Audio Feedback
+    useWheelSound(selectedIndex, "/sounds/tick.wav");
+
+    // Framer Motion Scroll Hook
+    const { scrollY } = useScroll({
+        container: containerRef,
     });
 
-    // Calculate the centered index from scroll offset
-    const getCurrentIndex = useCallback((offset: number) => {
-        return Math.round(offset / ITEM_HEIGHT);
-    }, []);
+    // Detect Active Index based on Scroll Position
+    // We update the parent state when scroll snapping settles or during scroll?
+    // User wants sound *when passing*, so we need real-time index updates.
+    useMotionValueEvent(scrollY, "change", (latestVal) => {
+        const centerIndex = Math.round(latestVal / ITEM_HEIGHT);
+        // Only trigger change if valid and different
+        if (centerIndex >= 0 && centerIndex < items.length && centerIndex !== selectedIndex) {
+            onIndexChange(centerIndex);
+        }
+    });
 
-    // Clamp index to valid range
-    const clampIndex = useCallback((index: number) => {
-        return Math.max(0, Math.min(items.length - 1, index));
-    }, [items.length]);
-
-    // Snap to a specific index with animation
-    const snapToIndex = useCallback((index: number) => {
-        const clampedIndex = clampIndex(index);
-        const targetOffset = clampedIndex * ITEM_HEIGHT;
-
-        animate(scrollOffset, targetOffset, {
-            type: "spring",
-            stiffness: 400,
-            damping: 35,
-            onComplete: () => {
-                if (clampedIndex !== selectedIndex) {
-                    onIndexChange(clampedIndex);
-                }
+    // Initial Scroll Position
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.scrollTop = selectedIndex * ITEM_HEIGHT;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run once on mount? Or if selectedIndex changes externally? 
+    // If selectedIndex changes externally (e.g. initial load), we sync.
+    // We need to be careful not to fight the user's scroll.
+    useEffect(() => {
+        if (!isScrollingRef.current && containerRef.current) {
+            const currentScrollIndex = Math.round(containerRef.current.scrollTop / ITEM_HEIGHT);
+            if (currentScrollIndex !== selectedIndex) {
+                containerRef.current.scrollTo({
+                    top: selectedIndex * ITEM_HEIGHT,
+                    behavior: "smooth"
+                });
             }
-        });
-    }, [clampIndex, scrollOffset, selectedIndex, onIndexChange]);
-
-    // Handle tick sound and index change
-    useEffect(() => {
-        const unsubscribe = springOffset.on("change", (latest) => {
-            const currentIdx = getCurrentIndex(latest);
-            const clampedIdx = clampIndex(currentIdx);
-
-            if (clampedIdx !== lastTickIndex.current) {
-                lastTickIndex.current = clampedIdx;
-                playTickSound();
-            }
-        });
-        return () => unsubscribe();
-    }, [springOffset, getCurrentIndex, clampIndex]);
-
-    // Handle wheel scroll
-    const handleWheel = useCallback((e: WheelEvent) => {
-        e.preventDefault();
-
-        const delta = e.deltaY;
-        const currentOffset = scrollOffset.get();
-        const newOffset = currentOffset + delta * 0.5;
-
-        // Clamp the new offset
-        const maxOffset = (items.length - 1) * ITEM_HEIGHT;
-        const clampedOffset = Math.max(0, Math.min(maxOffset, newOffset));
-
-        scrollOffset.set(clampedOffset);
-
-        // Debounced snap after wheel stops
-        if (animationFrame.current) {
-            cancelAnimationFrame(animationFrame.current);
         }
+    }, [selectedIndex]);
 
-        animationFrame.current = requestAnimationFrame(() => {
-            setTimeout(() => {
-                const finalIndex = getCurrentIndex(scrollOffset.get());
-                snapToIndex(finalIndex);
-            }, 150);
-        });
-    }, [scrollOffset, items.length, getCurrentIndex, snapToIndex]);
-
-    // Handle touch/mouse drag
-    const handlePointerDown = useCallback((e: React.PointerEvent) => {
-        isDragging.current = true;
-        lastY.current = e.clientY;
-        velocity.current = 0;
-
-        if (animationFrame.current) {
-            cancelAnimationFrame(animationFrame.current);
-        }
-
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    }, []);
-
-    const handlePointerMove = useCallback((e: React.PointerEvent) => {
-        if (!isDragging.current) return;
-
-        const deltaY = lastY.current - e.clientY;
-        velocity.current = deltaY;
-        lastY.current = e.clientY;
-
-        const currentOffset = scrollOffset.get();
-        const newOffset = currentOffset + deltaY;
-
-        // Apply resistance at boundaries
-        const maxOffset = (items.length - 1) * ITEM_HEIGHT;
-        let clampedOffset = newOffset;
-
-        if (newOffset < 0) {
-            clampedOffset = newOffset * 0.3; // Rubber band effect
-        } else if (newOffset > maxOffset) {
-            clampedOffset = maxOffset + (newOffset - maxOffset) * 0.3;
-        }
-
-        scrollOffset.set(clampedOffset);
-    }, [scrollOffset, items.length]);
-
-    const handlePointerUp = useCallback((e: React.PointerEvent) => {
-        if (!isDragging.current) return;
-        isDragging.current = false;
-
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-
-        // Apply inertia based on velocity
-        const currentOffset = scrollOffset.get();
-        const inertiaOffset = currentOffset + velocity.current * 8;
-        const targetIndex = getCurrentIndex(inertiaOffset);
-
-        snapToIndex(targetIndex);
-    }, [scrollOffset, getCurrentIndex, snapToIndex]);
-
-    // Add wheel event listener
-    useEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-
-        container.addEventListener("wheel", handleWheel, { passive: false });
-        return () => container.removeEventListener("wheel", handleWheel);
-    }, [handleWheel]);
-
-    // Initialize scroll position
-    useEffect(() => {
-        scrollOffset.set(selectedIndex * ITEM_HEIGHT);
-    }, []);
 
     return (
-        <div
-            ref={containerRef}
-            className="relative w-full h-full flex flex-col items-center justify-center bg-[#F9F9F7] overflow-hidden select-none touch-none"
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-        >
-            {/* Gradient overlays for depth */}
-            <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#F9F9F7] to-transparent pointer-events-none z-20" />
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#F9F9F7] to-transparent pointer-events-none z-20" />
-
-            {/* Selection indicator */}
-            <div className="absolute top-1/2 left-4 right-4 h-[56px] -translate-y-1/2 pointer-events-none z-10">
-                <div className="w-full h-full rounded-xl bg-white/60 backdrop-blur-sm border border-white/80 shadow-sm" />
-            </div>
-
-            {/* Wheel items */}
+        <div className="relative w-full h-full flex flex-col items-center justify-center bg-[#F9F9F7] overflow-hidden">
+            {/* 
+               SCROLL CONTAINER 
+               This is the transparent interaction layer with precise scroll snap.
+            */}
             <div
-                className="relative w-full"
+                ref={containerRef}
+                className="absolute inset-0 w-full h-full overflow-y-auto snap-y snap-mandatory no-scrollbar z-20"
+                onScroll={() => { isScrollingRef.current = true; }}
+                onPointerUp={() => {
+                    // Reset scrolling lock after a delay to allow "smooth" external updates again?
+                    // actually standard scroll events are fine.
+                    setTimeout(() => { isScrollingRef.current = false; }, 500);
+                }}
                 style={{
-                    height: VISIBLE_COUNT * ITEM_HEIGHT,
-                    perspective: "1000px",
-                    perspectiveOrigin: "center center"
+                    scrollBehavior: 'smooth',
                 }}
             >
-                {items.map((item, i) => (
-                    <WheelItem
+                {/* Spacer Top */}
+                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
+
+                {/* Items for snapping target (Invisible touch targets) */}
+                {items.map((_, i) => (
+                    <div
                         key={i}
-                        index={i}
-                        item={item}
-                        scrollOffset={springOffset}
-                        totalItems={items.length}
-                        isSelected={selectedIndices.has(i)}
-                        isFocused={selectedIndex === i}
-                        onToggle={() => onToggleSelection(i)}
-                        onTap={() => snapToIndex(i)}
+                        className="w-full snap-center"
+                        style={{ height: ITEM_HEIGHT }}
+                        onClick={() => {
+                            // Allow click to snap
+                            containerRef.current?.scrollTo({
+                                top: i * ITEM_HEIGHT,
+                                behavior: "smooth"
+                            });
+                        }}
                     />
                 ))}
+
+                {/* Spacer Bottom */}
+                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
             </div>
+
+
+            {/* 
+               VISUAL RENDERING LAYER (3D WHEEL)
+               This listens to the scrollX/Y of the container but renders visually distinct.
+               Pointer events are set to none so clicks pass through to the scroll container.
+            */}
+            <div
+                className="relative w-full h-full pointer-events-none flex items-center justify-center"
+                style={{
+                    perspective: PERSPECTIVE,
+                    transformStyle: "preserve-3d"
+                }}
+            >
+                {/* Selection Highlight (Center Strip) */}
+                <div
+                    className="absolute z-0 w-full bg-white/40 border-y border-braun-accent/20 backdrop-blur-sm shadow-sm"
+                    style={{ height: ITEM_HEIGHT + 16 }} // Slightly larger than item
+                />
+
+                <div className="relative w-full h-full [transform-style:preserve-3d]">
+                    {items.map((item, i) => (
+                        <Wheel3DItem
+                            key={i}
+                            index={i}
+                            item={item}
+                            scrollY={scrollY}
+                            isSelected={selectedIndices.has(i)}
+                            isFocused={selectedIndex === i}
+                            totalCount={items.length}
+                        />
+                    ))}
+                </div>
+            </div>
+
+            {/* Top/Bottom Fade Gradients */}
+            <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-[#F9F9F7] to-transparent z-10 pointer-events-none" />
+            <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-[#F9F9F7] to-transparent z-10 pointer-events-none" />
         </div>
     );
 }
 
-interface WheelItemProps {
-    index: number;
-    item: CardData;
-    scrollOffset: any;
-    totalItems: number;
-    isSelected: boolean;
-    isFocused: boolean;
-    onToggle: () => void;
-    onTap: () => void;
-}
 
-function WheelItem({
+// --- 3D Item Component ---
+function Wheel3DItem({
     index,
     item,
-    scrollOffset,
-    totalItems,
+    scrollY,
     isSelected,
     isFocused,
-    onToggle,
-    onTap
-}: WheelItemProps) {
-    // Calculate the visual offset from center
-    const itemOffset = useTransform(scrollOffset, (offset: number) => {
-        const centerOffset = offset - (index * ITEM_HEIGHT);
-        return -centerOffset; // Negative because we're measuring from item to center
+    totalCount
+}: {
+    index: number;
+    item: CardData;
+    scrollY: MotionValue<number>;
+    isSelected: boolean;
+    isFocused: boolean;
+    totalCount: number;
+}) {
+    // Determine the scroll position relative to THIS item
+    // When scrollY is at index * ITEM_HEIGHT, the item is in the center.
+    // 'offset' will be 0 at center, positive when item is above center, negative when below
+    const rawOffset = useTransform(scrollY, (y) => (y - index * ITEM_HEIGHT) / ITEM_HEIGHT);
+
+    // --- 3D Transformations for CONVEX (protruding) Wheel ---
+    // At 0: RotateX = 0, Z = 0
+    // At 1 (one item Down): RotateX = -20deg (tilting away up), Z = -depth
+    // At -1 (one item Up): RotateX = 20deg (tilting away down), Z = -depth
+
+    // RotateX:
+    // If offset is positive (we have scrolled Past the item, item is "above"), 
+    // we want visual top of wheel -> rotateX should be positive? 
+    // Standard CSS rotateX(positive) moves top back. Correct.
+    const rotateX = useTransform(rawOffset, (val) => {
+        // Clamp to visible range optimizations
+        if (Math.abs(val) > 4) return val * 20; // Optimization
+        return val * 18; // 18 degrees per item unit
     });
 
-    // 3D transforms for convex wheel effect (like iOS UIPickerView)
-    // Items above center rotate backward (positive X), items below rotate forward (negative X)
-    const rotateX = useTransform(itemOffset, (offset: number) => {
-        const normalizedOffset = offset / ITEM_HEIGHT;
-        // Positive angle for items above, negative for below - creates CONVEX effect
-        const angle = normalizedOffset * -25;
-        return Math.max(-75, Math.min(75, angle));
+    const z = useTransform(rawOffset, (val) => {
+        // Circular path approximation: R * cos(theta) - R
+        // simpler: just push back based on distance
+        const absVal = Math.abs(val);
+        return -1 * (absVal * absVal) * 8; // Quadratic falloff for depth
     });
 
-    // Y position follows a circular arc
-    const y = useTransform(itemOffset, (offset: number) => {
-        const normalizedOffset = offset / ITEM_HEIGHT;
-        // Center position plus arc displacement
-        const centerY = (VISIBLE_COUNT * ITEM_HEIGHT) / 2 - ITEM_HEIGHT / 2;
-        const arcY = Math.sin(normalizedOffset * 0.3) * WHEEL_RADIUS * 0.15;
-        return centerY + offset + arcY;
+    const opacity = useTransform(rawOffset, (val) => {
+        return 1 - Math.pow(Math.abs(val) / 3.5, 1.5); // Smooth fade out
     });
 
-    // Z depth - center item is closest, items curve away
-    const z = useTransform(itemOffset, (offset: number) => {
-        const normalizedOffset = Math.abs(offset / ITEM_HEIGHT);
-        // Convex: center protrudes forward, edges recede
-        const depth = -normalizedOffset * normalizedOffset * 8;
-        return Math.max(-100, depth);
+    const scale = useTransform(rawOffset, (val) => {
+        return 1 - Math.abs(val) * 0.05;
     });
 
-    // Opacity fades for distant items
-    const opacity = useTransform(itemOffset, (offset: number) => {
-        const normalizedOffset = Math.abs(offset / ITEM_HEIGHT);
-        return Math.max(0.2, 1 - normalizedOffset * 0.25);
-    });
-
-    // Scale slightly smaller for distant items
-    const scale = useTransform(itemOffset, (offset: number) => {
-        const normalizedOffset = Math.abs(offset / ITEM_HEIGHT);
-        return Math.max(0.8, 1 - normalizedOffset * 0.05);
-    });
+    // Visibility optimization: hide if too far
+    const display = useTransform(rawOffset, (val) => Math.abs(val) > 4.5 ? "none" : "flex");
 
     return (
         <motion.div
-            style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: ITEM_HEIGHT,
-                y,
-                rotateX,
-                z,
-                opacity,
-                scale,
-                transformStyle: "preserve-3d",
-                transformOrigin: "center center",
-                backfaceVisibility: "hidden"
-            }}
-            onClick={(e) => {
-                e.stopPropagation();
-                onTap();
-            }}
             className={cn(
-                "flex items-center gap-3 px-6 cursor-pointer",
+                "absolute left-0 right-0 top-1/2 flex items-center px-8 gap-4",
+                // Base colors
                 isFocused ? "text-braun-text" : "text-gray-400"
             )}
+            style={{
+                height: ITEM_HEIGHT,
+                marginTop: -ITEM_HEIGHT / 2, // Centering trick
+                rotateX: rotateX,
+                z: z, // Using 'z' instead of translateZ usually works in framer-motion recent versions specific shorthand
+                scale: scale,
+                opacity: opacity,
+                display: display,
+                transformStyle: "preserve-3d", // Critical for nested transforms
+                transformOrigin: "50% 50% -200px", // Push pivot point back to create "Wheel Radius" effect **CRITICAL for Convex**
+            }}
         >
-            {/* Checkbox */}
-            <div
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onToggle();
-                }}
-                className={cn(
-                    "w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-200 shrink-0 border-2",
-                    isSelected
-                        ? "bg-braun-accent border-braun-accent text-white shadow-md"
-                        : "border-gray-300 bg-white/80 hover:border-gray-400"
-                )}
-            >
-                {isSelected && <Check className="w-4 h-4" strokeWidth={3} />}
+            {/* Checkbox Indicator */}
+            <div className={cn(
+                "w-6 h-6 rounded-md border flex items-center justify-center transition-colors duration-200",
+                isSelected
+                    ? "bg-braun-accent border-braun-accent text-white"
+                    : "bg-white border-gray-200"
+            )}>
+                {isSelected && <Check className="w-4 h-4" />}
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0 pointer-events-none">
-                <h4 className={cn(
-                    "text-base font-semibold truncate leading-tight transition-colors",
-                    isFocused ? "text-braun-text" : "text-gray-500"
-                )}>
+            {/* Text Content */}
+            <div className="flex-1 min-w-0">
+                <div className="text-lg font-semibold truncate leading-tight">
                     {item.front}
-                </h4>
-                <p className={cn(
-                    "text-sm truncate transition-colors",
-                    isFocused ? "text-gray-600" : "text-gray-400"
-                )}>
+                </div>
+                <div className="text-sm truncate opacity-80">
                     {item.translation}
-                </p>
+                </div>
             </div>
         </motion.div>
     );
