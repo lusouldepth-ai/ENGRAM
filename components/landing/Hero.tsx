@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
+import { WheelPicker } from "./WheelPicker";
 
 export function Hero() {
    const { t } = useLanguage();
@@ -272,55 +273,15 @@ export function Hero() {
                                     </Button>
                                  </div>
 
-                                 {/* Scrollable List with Fade Mask */}
-                                 <div className="flex-1 overflow-y-auto min-h-0 relative group">
-                                    {/* Top/Bottom Fade Masks */}
-                                    <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-[#F9F9F7] to-transparent z-10 pointer-events-none" />
-                                    <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[#F9F9F7] to-transparent z-10 pointer-events-none" />
-
-                                    <div className="px-4 py-2 space-y-2 content-start pb-8 pt-2">
-                                       {candidates.map((card, i) => (
-                                          <motion.div
-                                             key={i}
-                                             layoutId={`card-${i}`}
-                                             onClick={() => setFocusedIndex(i)}
-                                             className={cn(
-                                                "relative flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 select-none",
-                                                focusedIndex === i
-                                                   ? "bg-white border-braun-accent shadow-sm scale-[1.02] z-10"
-                                                   : "bg-white border-gray-100 hover:border-gray-200 hover:bg-white/50"
-                                             )}
-                                          >
-                                             <div className="flex gap-3 items-center min-w-0">
-                                                <div
-                                                   className={cn(
-                                                      "w-5 h-5 rounded flex items-center justify-center transition-colors shrink-0",
-                                                      selectedIndices.has(i)
-                                                         ? "bg-braun-accent text-white"
-                                                         : "border border-gray-200 bg-gray-50"
-                                                   )}
-                                                   onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      toggleSelection(i);
-                                                   }}
-                                                >
-                                                   {selectedIndices.has(i) && <Check className="w-3 h-3" />}
-                                                </div>
-                                                <div className="min-w-0">
-                                                   <p className={cn(
-                                                      "font-medium text-sm truncate transition-colors",
-                                                      focusedIndex === i ? "text-braun-text" : "text-gray-600"
-                                                   )}>
-                                                      {card.front}
-                                                   </p>
-                                                   <p className="text-xs text-gray-400 truncate max-w-[140px]">
-                                                      {card.translation}
-                                                   </p>
-                                                </div>
-                                             </div>
-                                          </motion.div>
-                                       ))}
-                                    </div>
+                                 {/* Wheel Picker Container */}
+                                 <div className="flex-1 relative overflow-hidden">
+                                    <WheelPicker
+                                       items={candidates}
+                                       selectedIndex={focusedIndex}
+                                       onIndexChange={setFocusedIndex}
+                                       onToggleSelection={toggleSelection}
+                                       selectedIndices={selectedIndices}
+                                    />
                                  </div>
                               </div>
 
