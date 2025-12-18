@@ -23,7 +23,7 @@ export function Navbar({ user }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50">
       <nav
-        className="w-full px-6 py-6 md:px-12 flex justify-between items-center border-b border-black/5 bg-[#F4F4F0]/80 backdrop-blur-sm"
+        className="w-full px-6 py-5 md:px-12 flex justify-between items-center bg-white/40 backdrop-blur-xl backdrop-saturate-150 border-b border-white/30 shadow-[0_1px_0_rgba(255,255,255,0.5)_inset,0_4px_24px_rgba(0,0,0,0.04)]"
         aria-label="Main navigation"
       >
         <Link href="/" className="flex items-center gap-3 select-none cursor-pointer" aria-label="ENGRAM Home">
