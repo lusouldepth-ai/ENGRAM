@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { LanguageProvider } from "@/lib/contexts/LanguageContext";
+import { Analytics } from "@vercel/analytics/next";
 import dynamic from 'next/dynamic';
 
 // Lazy load heavy client components to improve initial bundle
@@ -40,6 +41,7 @@ export default function RootLayout({
           {children}
           <GlobalWordMenu />
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
