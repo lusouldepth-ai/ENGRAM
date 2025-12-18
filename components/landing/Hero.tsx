@@ -203,15 +203,13 @@ export function Hero() {
                      </div>
 
                      {/* Right Preview */}
-                     <div className="p-6 md:p-12 flex flex-col items-center justify-center relative">
-                        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 absolute top-6 left-6">{t('hero.demo.preview')}</div>
+                     <div className="p-6 md:p-8 flex flex-col items-center justify-center relative">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 absolute top-4 left-4 md:top-6 md:left-6">{t('hero.demo.preview')}</div>
 
-                        <div className="w-full max-w-xs aspect-[4/5] bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col items-center justify-center text-center p-8 relative hover:-translate-y-1 transition-transform duration-300 cursor-pointer group">
-                           <div className="mb-2 text-gray-400 text-sm font-mono">/əˈfem.ər.əl/</div>
-                           <h3 className="text-3xl font-bold text-braun-text mb-4 tracking-tight">Ephemeral</h3>
-                           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-500 absolute bottom-8 inset-x-0">
-                              <p className="text-braun-accent font-medium text-sm">{t('hero.demo.clickToFlip')}</p>
-                           </div>
+                        <div className="w-full max-w-[200px] md:max-w-[220px] aspect-square bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col items-center justify-center text-center p-5 relative hover:-translate-y-1 transition-transform duration-300 cursor-pointer group">
+                           <div className="mb-1 text-gray-400 text-xs font-mono">/əˈfem.ər.əl/</div>
+                           <h3 className="text-xl md:text-2xl font-bold text-braun-text mb-2 tracking-tight">Ephemeral</h3>
+                           <p className="text-gray-400 text-xs mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">{t('hero.demo.clickToFlip')}</p>
                         </div>
                      </div>
                   </div>
