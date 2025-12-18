@@ -1,0 +1,11 @@
+    // ... existing code ...
+    Functions: {
+      check_daily_quota: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: boolean
+      }
+    }
+    // ... existing code ...
+

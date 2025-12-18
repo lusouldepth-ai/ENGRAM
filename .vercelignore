@@ -1,0 +1,16 @@
+# 排除大型 JSON 文件，避免超过 Vercel 250MB 限制
+# 这些文件只在本地导入时使用，不需要部署到 Vercel
+data/
+data/**/*.json
+data/*.json
+
+# 排除其他不需要的文件
+.DS_Store
+*.log
+.env*.local
+.vscode
+.idea
+coverage
+*.tsbuildinfo
+# 注意：scripts/ 目录需要保留，因为构建脚本需要它们
+

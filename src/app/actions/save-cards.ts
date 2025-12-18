@@ -1,0 +1,124 @@
+'use server';
+
+import { createClient } from "@/lib/supabase/server";
+
+export type CardData = {
+  front: string;
+  phonetic?: string;
+  pos?: string;
+  translation?: string;
+  definition?: string;
+  example?: string;
+  short_usage?: string;
+  shadow_sentence?: string;
+  shadow_sentence_translation?: string;
+  root_analysis?: string;
+};
+
+export async function saveCards(cards: CardData[], deckTitle: string = "Generated Deck") {
+  const supabase = createClient();
+
+  try {
+    // 1. Get User with strict check
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error("Auth Error:", authError);
+      return { success: false, error: "Unauthorized: Please log in to save cards." };
+    }
+
+    console.log(`🚀 Saving ${cards.length} cards for user ${user.id} to deck "${deckTitle}"`);
+
+    // 2. Ensure Profile Exists (Safety Check)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) {
+      console.log("⚠️ Profile missing, creating one...");
+      await supabase.from('profiles').insert({ id: user.id, email: user.email });
+    }
+
+    // 3. Create or find existing Deck
+    // For special deck titles, reuse existing deck instead of creating new one
+    const REUSABLE_DECK_TITLES = ['我的生词本', '我的错词本', '生词本', 'Quick Add', 'Starter Deck', 'Vocabulary'];
+    const shouldReuseDeck = REUSABLE_DECK_TITLES.includes(deckTitle);
+
+    let deck: { id: string } | null = null;
+
+    if (shouldReuseDeck) {
+      // Try to find existing deck with this title
+      const { data: existingDeck } = await supabase
+        .from('decks')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', deckTitle)
+        .single();
+
+      if (existingDeck) {
+        console.log(`📚 Found existing deck "${deckTitle}", adding cards to it`);
+        deck = existingDeck;
+      }
+    }
+
+    // If no existing deck found, create new one
+    if (!deck) {
+      const { data: newDeck, error: deckError } = await supabase
+        .from('decks')
+        .insert({
+          user_id: user.id,
+          title: deckTitle,
+          is_preset: false
+        })
+        .select()
+        .single();
+
+      if (deckError) {
+        console.error("Deck Creation Error:", deckError);
+        throw new Error(`Failed to create deck: ${deckError.message}`);
+      }
+
+      console.log(`📚 Created new deck "${deckTitle}"`);
+      deck = newDeck;
+    }
+
+    // 4. Insert Cards
+    const cardsToInsert = cards.map(card => ({
+      deck_id: deck.id,
+      user_id: user.id,
+      front: card.front,
+      phonetic: card.phonetic || "",
+      pos: card.pos || "",
+      translation: card.translation || "",
+      definition: card.definition || "",
+      example: card.example || "",
+      short_usage: card.short_usage || "",
+      shadow_sentence: card.shadow_sentence || "",
+      shadow_sentence_translation: card.shadow_sentence_translation || "",
+      root_analysis: card.root_analysis || "",
+      state: 0, // 0: New
+      due: new Date().toISOString(), // Immediately due
+      reps: 0,
+      stability: 0,
+      difficulty: 0
+    }));
+
+    const { error: cardsError } = await supabase
+      .from('cards')
+      .insert(cardsToInsert);
+
+    if (cardsError) {
+      console.error("Card Insertion Error:", cardsError);
+      throw new Error(`Failed to save cards: ${cardsError.message}`);
+    }
+
+    console.log("✅ Cards saved successfully");
+    return { success: true, deckId: deck.id };
+
+  } catch (error: any) {
+    console.error("❌ Save Action Failed:", error);
+    return { success: false, error: error.message || "Unknown error occurred" };
+  }
+}

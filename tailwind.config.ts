@@ -7,7 +7,7 @@ const config = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
-	],
+  ],
   prefix: "",
   theme: {
     container: {
@@ -54,10 +54,10 @@ const config = {
         },
         // Custom Braun Palette
         braun: {
-           bg: "var(--braun-bg)",
-           surface: "var(--braun-surface)",
-           text: "var(--braun-text)",
-           accent: "var(--braun-accent)",
+          bg: "var(--braun-bg)",
+          surface: "var(--braun-surface)",
+          text: "var(--braun-text)",
+          accent: "var(--braun-accent)",
         }
       },
       borderRadius: {
@@ -80,7 +80,17 @@ const config = {
         "accordion-up": "accordion-up 0.2s ease-out",
       },
       fontFamily: {
-        sans: ["var(--font-inter)"],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "PingFang SC",
+          "Microsoft YaHei",
+          "sans-serif"
+        ],
       },
     },
   },
