@@ -124,43 +124,6 @@ export function StudyCard({
     checkAndFixTranslation();
   }, [card]);
 
-  // 键盘快捷键：1/2/3/4 对应 Forgot/Hard/Good/Easy
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // 只在卡片翻转后（显示背面）才响应快捷键
-      if (!isFlipped) return;
-
-      // 忽略在输入框中的按键
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-
-      switch (e.key) {
-        case '1':
-          e.preventDefault();
-          e.stopPropagation();
-          onRate?.('forgot');
-          break;
-        case '2':
-          e.preventDefault();
-          e.stopPropagation();
-          onRate?.('hard');
-          break;
-        case '3':
-          e.preventDefault();
-          e.stopPropagation();
-          onRate?.('good');
-          break;
-        case '4':
-          e.preventDefault();
-          e.stopPropagation();
-          onRate?.('easy');
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFlipped, onRate]);
 
   const stopAudio = () => {
     // Stop HTML Audio element
@@ -375,6 +338,7 @@ export function StudyCard({
             handleReveal={handleReveal}
             isSpeaking={isSpeaking}
             isCorrect={isCorrect}
+            isFlipped={isFlipped}
           />
 
           {/* Back */}

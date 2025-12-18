@@ -11,6 +11,7 @@ interface StudyCardFrontProps {
     handleReveal: () => void;
     isSpeaking: boolean;
     isCorrect: boolean | null;
+    isFlipped: boolean;
 }
 
 export function StudyCardFront({
@@ -22,6 +23,7 @@ export function StudyCardFront({
     handleReveal,
     isSpeaking,
     isCorrect,
+    isFlipped,
 }: StudyCardFrontProps) {
     return (
         <div
@@ -73,6 +75,7 @@ export function StudyCardFront({
                         autoFocus
                         autoComplete="off"
                         spellCheck="false"
+                        disabled={isFlipped}
                     />
                     <span id="answer-feedback" className="sr-only">
                         {isCorrect === null ? "" : isCorrect ? "Correct!" : "Incorrect, try again"}
