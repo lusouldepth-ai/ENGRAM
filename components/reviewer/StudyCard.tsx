@@ -136,15 +136,23 @@ export function StudyCard({
 
       switch (e.key) {
         case '1':
+          e.preventDefault();
+          e.stopPropagation();
           onRate?.('forgot');
           break;
         case '2':
+          e.preventDefault();
+          e.stopPropagation();
           onRate?.('hard');
           break;
         case '3':
+          e.preventDefault();
+          e.stopPropagation();
           onRate?.('good');
           break;
         case '4':
+          e.preventDefault();
+          e.stopPropagation();
           onRate?.('easy');
           break;
       }

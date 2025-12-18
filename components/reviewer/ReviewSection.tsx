@@ -87,6 +87,51 @@ export default function ReviewSection({ profile, initialCards, initialTodayCount
     });
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (!currentCard || isSubmitting) return;
+
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        if (!isFlipped) {
+          setIsFlipped(true);
+        }
+      } else if (isFlipped) {
+        switch (e.key) {
+          case '1':
+            e.preventDefault();
+            handleReview('forgot');
+            break;
+          case '2':
+            e.preventDefault();
+            handleReview('hard');
+            break;
+          case '3':
+            e.preventDefault();
+            handleReview('good');
+            break;
+          case '4':
+            e.preventDefault();
+            handleReview('easy');
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentCard, isFlipped, isSubmitting, handleReview]);
+
   // ... existing code
 
   if (isLoading) {
