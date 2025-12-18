@@ -21,9 +21,9 @@ export function Navbar({ user }: NavbarProps) {
     : { learning: '学习中心', progress: '学习进度', pricing: '定价', login: '登录', start: '开始使用' };
 
   return (
-    <header>
+    <header className="sticky top-0 z-50">
       <nav
-        className="w-full px-6 py-6 md:px-12 flex justify-between items-center border-b border-black/5 bg-braun-bg/80 backdrop-blur-sm sticky top-0 z-50"
+        className="w-full px-6 py-6 md:px-12 flex justify-between items-center border-b border-black/5 bg-[#F4F4F0]/80 backdrop-blur-sm"
         aria-label="Main navigation"
       >
         <Link href="/" className="flex items-center gap-3 select-none cursor-pointer" aria-label="ENGRAM Home">
