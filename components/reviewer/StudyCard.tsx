@@ -323,7 +323,7 @@ export function StudyCard({
       </div>
 
       {/* Card Container - Pure CSS 3D Flip */}
-      <div className="w-full max-w-2xl aspect-[4/3] [perspective:1000px] relative">
+      <div className="w-full max-w-md aspect-square [perspective:1000px] relative">
         <div
           className="w-full h-full relative transition-transform duration-[400ms] ease-out [transform-style:preserve-3d]"
           style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
