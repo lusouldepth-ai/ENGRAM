@@ -3,6 +3,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { LanguageProvider } from "@/lib/contexts/LanguageContext";
 import dynamic from 'next/dynamic';
+import { Analytics } from "@vercel/analytics/next";
 
 // Lazy load heavy client components to improve initial bundle
 const GlobalWordMenu = dynamic(
@@ -40,6 +41,7 @@ export default function RootLayout({
           {children}
           <GlobalWordMenu />
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
