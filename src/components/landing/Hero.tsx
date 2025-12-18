@@ -295,7 +295,7 @@ export function Hero() {
                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                        animate={{ opacity: 1, y: 0, scale: 1 }}
                                        transition={{ duration: 0.2 }}
-                                       className="w-full max-w-[320px] aspect-square bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 relative max-h-[85%]"
+                                       className="w-full max-w-[280px] h-[320px] bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 relative"
                                     >
                                        {candidates[focusedIndex].phonetic && (
                                           <div className="mb-2 text-gray-400 text-xs md:text-sm font-mono tracking-wide">

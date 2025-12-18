@@ -81,7 +81,7 @@ export function WheelPicker({ items, selectedIndex, onIndexChange, onToggleSelec
     };
 
     return (
-        <div className="relative w-full h-full flex flex-col items-center justify-center bg-[#F9F9F7] overflow-hidden">
+        <div className="relative w-full h-full flex flex-col items-center justify-start bg-[#F9F9F7] overflow-hidden">
             {/* Selection Highlight Overlays */}
             <div className="absolute top-1/2 left-0 right-0 h-[70px] -translate-y-1/2 pointer-events-none z-10">
                 <div className="absolute top-0 left-4 right-4 h-px bg-gray-200" />
@@ -93,8 +93,8 @@ export function WheelPicker({ items, selectedIndex, onIndexChange, onToggleSelec
                 ref={containerRef}
                 className="w-full h-full overflow-y-scroll no-scrollbar snap-y snap-mandatory perspective-[1000px]"
                 style={{
-                    paddingTop: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
-                    paddingBottom: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
+                    paddingTop: '16px',
+                    paddingBottom: '16px',
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none'
                 }}
