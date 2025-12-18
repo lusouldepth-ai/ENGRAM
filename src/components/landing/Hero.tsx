@@ -165,7 +165,7 @@ export function Hero() {
                {/* Body: Conditional Rendering */}
                {step === 'idle' ? (
                   /* Original Demo Content */
-                  <div className="grid md:grid-cols-2 h-[500px] bg-[#F9F9F7]">
+                  <div className="grid md:grid-cols-2 h-[600px] bg-[#F9F9F7]">
 
                      {/* Left List */}
                      <div className="p-6 border-r border-gray-200 hidden md:block overflow-y-auto">
@@ -216,7 +216,7 @@ export function Hero() {
                   </div>
                ) : (
                   /* Real Functionality Content (Card Generation Results) */
-                  <div className="h-[500px] bg-gray-50/50 overflow-hidden relative">
+                  <div className="h-[600px] bg-gray-50/50 overflow-hidden relative">
                      <AnimatePresence mode="wait">
                         {/* Loading State */}
                         {step === 'generating' && (
