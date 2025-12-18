@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dataDir = path.join(process.cwd(), 'data');
+const dataDir = path.join(process.cwd(), 'src', 'data');
 const dataBackupDir = path.join(process.cwd(), 'data.backup');
 
 // 只在 Vercel 环境中执行
