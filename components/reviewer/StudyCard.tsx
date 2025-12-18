@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
-import { motion } from 'framer-motion';
 import { Database } from '@/lib/supabase/types';
 import { useRouter } from 'next/navigation';
 import { regenerateShadowSentence } from '@/app/actions/shadow-actions';
@@ -9,7 +8,12 @@ import { getIntervalPreview } from '@/app/actions/review-actions';
 import { checkCardTranslation, fixCardTranslation } from '@/app/actions/fix-translation-action';
 import { playHighQualitySpeech } from '@/lib/services/ttsService';
 import { StudyCardFront } from './StudyCardFront';
-import { StudyCardBack } from './StudyCardBack';
+import dynamic from 'next/dynamic';
+
+const StudyCardBack = dynamic(() => import('./StudyCardBack').then(mod => mod.StudyCardBack), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-white rounded-3xl animate-pulse" />
+});
 
 type Card = Database['public']['Tables']['cards']['Row'] & {
   audio_url?: string | null;
@@ -347,13 +351,11 @@ export function StudyCard({
         </div>
       </div>
 
-      {/* Card Container */}
-      <div className="w-full max-w-2xl aspect-[4/3] perspective-1000 relative">
-        <motion.div
-          className="w-full h-full relative"
-          animate={{ rotateY: isFlipped ? 180 : 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          style={{ transformStyle: "preserve-3d" }}
+      {/* Card Container - Pure CSS 3D Flip */}
+      <div className="w-full max-w-2xl aspect-[4/3] [perspective:1000px] relative">
+        <div
+          className="w-full h-full relative transition-transform duration-[400ms] ease-out [transform-style:preserve-3d]"
+          style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
           {/* Front */}
           <StudyCardFront
@@ -394,7 +396,7 @@ export function StudyCard({
             intervalPreviews={intervalPreviews}
             fixedTranslation={fixedTranslation}
           />
-        </motion.div>
+        </div>
       </div>
     </div>
   );

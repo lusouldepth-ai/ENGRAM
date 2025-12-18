@@ -5,6 +5,14 @@
   "engines": {
     "node": "20.x"
   },
+  "browserslist": [
+    "chrome >= 87",
+    "firefox >= 78",
+    "safari >= 14",
+    "edge >= 88",
+    "not ie > 0",
+    "not dead"
+  ],
   "scripts": {
     "dev": "next dev --turbo",
     "prebuild": "node scripts/prebuild.js",

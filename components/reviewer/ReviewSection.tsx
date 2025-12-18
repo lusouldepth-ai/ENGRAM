@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { StudyCard } from "@/components/reviewer/StudyCard";
+import { StudyCardSkeleton } from "@/components/reviewer/StudyCardSkeleton";
 import { getDueCards, reviewCard, getTodayReviewedCount } from "@/app/actions/review-actions";
 import { Database } from "@/lib/supabase/types";
 
@@ -13,24 +14,33 @@ type ProfileMeta = Pick<
 
 interface ReviewSectionProps {
   profile?: ProfileMeta;
+  // Pre-fetched data for server-side rendering (eliminates client-side fetch delay)
+  initialCards?: Card[];
+  initialTodayCount?: number;
 }
 
-export default function ReviewSection({ profile }: ReviewSectionProps) {
-  const [cards, setCards] = useState<Card[]>([]);
+export default function ReviewSection({ profile, initialCards, initialTodayCount }: ReviewSectionProps) {
+  // If server provided initial data, use it immediately (no loading state)
+  const hasInitialData = initialCards !== undefined && initialTodayCount !== undefined;
+  const [cards, setCards] = useState<Card[]>(hasInitialData ? initialCards : []);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!hasInitialData); // Skip loading if data is pre-fetched
   const [isSubmitting, startTransition] = useTransition();
   const [answerCorrect, setAnswerCorrect] = useState<boolean | null>(null);
-  const [initialCardCount, setInitialCardCount] = useState(0);
+  const [initialCardCount, setInitialCardCount] = useState(hasInitialData ? initialCards.length : 0);
   const [sessionCompletedCount, setSessionCompletedCount] = useState(0);
-  const [todayReviewedCount, setTodayReviewedCount] = useState(0);
+  const [todayReviewedCount, setTodayReviewedCount] = useState(hasInitialData ? initialTodayCount : 0);
 
   // Debug: Log received profile
   console.log('📋 [ReviewSection] Received profile:', profile);
   console.log('📋 [ReviewSection] tier:', profile?.tier, '| accent_preference:', profile?.accent_preference);
+  console.log('📋 [ReviewSection] Has initial data:', hasInitialData, '| initialCards count:', initialCards?.length);
 
+  // Only fetch on client if no initial data was provided (fallback for /review route)
   useEffect(() => {
+    if (hasInitialData) return; // Skip if data is already pre-fetched
+
     const loadCards = async () => {
       const dueCards = await getDueCards();
       const reviewedToday = await getTodayReviewedCount();
@@ -40,7 +50,7 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
       setIsLoading(false);
     };
     loadCards();
-  }, []);
+  }, [hasInitialData]);
 
   const currentCard = cards[currentIndex];
 
@@ -77,13 +87,10 @@ export default function ReviewSection({ profile }: ReviewSectionProps) {
     });
   };
 
+  // ... existing code
+
   if (isLoading) {
-    return (
-      <div className="w-full flex flex-col items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-        <p className="mt-4 text-gray-500">Loading cards...</p>
-      </div>
-    );
+    return <StudyCardSkeleton />;
   }
 
   if (!currentCard) {

@@ -8,14 +8,26 @@ const nextConfig = {
     },
     // 启用 standalone 输出模式以支持 Docker 部署
     output: process.env.DOCKER_BUILD ? 'standalone' : undefined,
-    // 排除大型 JSON 文件，避免超过 Vercel 250MB 限制
+    // SWC 编译优化
+    compiler: {
+        // 移除 console.log 在生产环境
+        removeConsole: process.env.NODE_ENV === 'production' ? {
+            exclude: ['error', 'warn'],
+        } : false,
+    },
+    // 实验性优化
     experimental: {
+        optimizePackageImports: ['lucide-react', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
         outputFileTracingExcludes: {
             '*': [
                 './data/**/*.json',
                 './data/*.json',
             ],
         },
+    },
+    // 资源优化
+    images: {
+        formats: ['image/avif', 'image/webp'],
     },
 };
 

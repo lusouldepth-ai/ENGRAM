@@ -12,19 +12,27 @@ export function LanguageToggle() {
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <span className={cn("text-xs font-medium transition-colors", !isEnglish ? "text-braun-text" : "text-gray-400")}>
+    <div className="flex items-center gap-2" role="group" aria-label="Language selection">
+      <span
+        className={cn("text-xs font-medium transition-colors", !isEnglish ? "text-braun-text" : "text-gray-400")}
+        aria-hidden="true"
+      >
         CN
       </span>
 
       <button
         onClick={toggle}
+        role="switch"
+        aria-checked={isEnglish}
+        aria-label={isEnglish ? "Switch to Chinese" : "Switch to English"}
         className={cn(
           "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           isEnglish ? "bg-braun-accent" : "bg-[#E5E5E5]"
         )}
       >
-        <span className="sr-only">Use setting</span>
+        <span className="sr-only">
+          {isEnglish ? "English selected, click to switch to Chinese" : "Chinese selected, click to switch to English"}
+        </span>
         <span
           aria-hidden="true"
           className={cn(
@@ -34,7 +42,10 @@ export function LanguageToggle() {
         ></span>
       </button>
 
-      <span className={cn("text-xs font-medium transition-colors", isEnglish ? "text-braun-text" : "text-gray-400")}>
+      <span
+        className={cn("text-xs font-medium transition-colors", isEnglish ? "text-braun-text" : "text-gray-400")}
+        aria-hidden="true"
+      >
         EN
       </span>
     </div>
