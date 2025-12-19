@@ -17,7 +17,12 @@ const nextConfig = {
     },
     // 实验性优化
     experimental: {
-        optimizePackageImports: ['lucide-react', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+        optimizePackageImports: [
+            'lucide-react',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            'framer-motion', // Tree-shake unused motion components
+        ],
         outputFileTracingExcludes: {
             '*': [
                 './data/**/*.json',

@@ -1,18 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Command, Sparkles, Check, Loader2, Plus } from "lucide-react";
+import { ArrowRight, Sparkles, Check, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
 import { useState, useTransition, useRef } from "react";
 import { generateCards } from "@/app/actions/generate-cards";
-import { saveCards, type CardData } from "@/app/actions/save-cards";
+import { type CardData } from "@/app/actions/save-cards";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Skeleton } from "@/components/ui/skeleton";
-import { motion, AnimatePresence } from "framer-motion";
-import { WheelPicker } from "./WheelPicker";
+
+// Lazy load the card generator component - contains framer-motion and WheelPicker
+// This reduces initial bundle size by ~3MB as these are only loaded when user triggers generation
+const HeroCardGenerator = dynamic(
+   () => import("./HeroCardGenerator").then((mod) => ({ default: mod.HeroCardGenerator })),
+   {
+      ssr: false,
+      loading: () => (
+         <div className="h-[600px] bg-gray-50/50 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-braun-accent" />
+         </div>
+      )
+   }
+);
 
 export function Hero() {
    const { t } = useLanguage();
@@ -21,11 +32,7 @@ export function Hero() {
    // -- CommandBar Logic Integration --
    const [input, setInput] = useState('');
    const [candidates, setCandidates] = useState<CardData[]>([]);
-   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
-   const [focusedIndex, setFocusedIndex] = useState<number>(0);
-
    const [isGenerating, startGenerating] = useTransition();
-   const [isSaving, startSaving] = useTransition();
    const [step, setStep] = useState<'idle' | 'generating' | 'review' | 'saved'>('idle');
    const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,8 +44,6 @@ export function Hero() {
             const result = await generateCards(input);
             if (result.success && Array.isArray(result.data)) {
                setCandidates(result.data);
-               setSelectedIndices(new Set(result.data.map((_, i) => i)));
-               setFocusedIndex(0);
                setStep('review');
             } else {
                setStep('idle');
@@ -55,37 +60,6 @@ export function Hero() {
          }
       });
    };
-
-   const handleSave = () => {
-      startSaving(async () => {
-         const selectedCards = candidates.filter((_, i) => selectedIndices.has(i));
-         const deckTitle = "我的生词本";
-         const result = await saveCards(selectedCards, deckTitle);
-
-         if (result.success) {
-            setStep('saved');
-            if (result.deckId) {
-               router.push(`/learning-center/deck/${result.deckId}`);
-            }
-            // Reset after delay or jump? usually jump.
-         } else {
-            // Likely not logged in
-            const confirmLogin = confirm("Please log in to save cards. Go to login?");
-            if (confirmLogin) router.push('/login');
-         }
-      });
-   };
-
-   const toggleSelection = (index: number) => {
-      const newSet = new Set(selectedIndices);
-      if (newSet.has(index)) {
-         newSet.delete(index);
-      } else {
-         newSet.add(index);
-      }
-      setSelectedIndices(newSet);
-   };
-   // -- End Logic --
 
    return (
       <section className="w-full flex flex-col items-center justify-center px-4 py-16 md:py-24 overflow-hidden">
@@ -164,7 +138,7 @@ export function Hero() {
 
                {/* Body: Conditional Rendering */}
                {step === 'idle' ? (
-                  /* Original Demo Content */
+                  /* Original Demo Content - Static, no framer-motion */
                   <div className="grid md:grid-cols-2 h-[600px] bg-[#F9F9F7]">
 
                      {/* Left List */}
@@ -204,156 +178,23 @@ export function Hero() {
                      </div>
 
                      {/* Right Preview */}
-                     <div className="p-6 md:p-8 flex flex-col items-center justify-center relative">
+                     <div className="p-6 md:p-8 lg:p-12 flex flex-col items-center justify-center relative h-full">
                         <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 absolute top-4 left-4 md:top-6 md:left-6">{t('hero.demo.preview')}</div>
 
-                        <div className="w-full max-w-[200px] md:max-w-[220px] aspect-square bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col items-center justify-center text-center p-5 relative hover:-translate-y-1 transition-transform duration-300 cursor-pointer group">
-                           <div className="mb-1 text-gray-400 text-xs font-mono">/əˈfem.ər.əl/</div>
-                           <h3 className="text-xl md:text-2xl font-bold text-braun-text mb-2 tracking-tight">Ephemeral</h3>
-                           <p className="text-gray-400 text-xs mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">{t('hero.demo.clickToFlip')}</p>
+                        <div className="w-full max-w-xs md:max-w-sm lg:max-w-md aspect-[4/5] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 md:p-8 relative hover:-translate-y-2 hover:shadow-2xl transition-all duration-300 cursor-pointer group">
+                           <div className="mb-2 text-gray-400 text-sm md:text-base font-mono">/əˈfem.ər.əl/</div>
+                           <h3 className="text-2xl md:text-3xl lg:text-4xl font-bold text-braun-text mb-3 tracking-tight">Ephemeral</h3>
+                           <p className="text-gray-400 text-sm mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">{t('hero.demo.clickToFlip')}</p>
                         </div>
                      </div>
                   </div>
                ) : (
-                  /* Real Functionality Content (Card Generation Results) */
-                  <div className="h-[600px] bg-gray-50/50 overflow-hidden relative">
-                     <AnimatePresence mode="wait">
-                        {/* Loading State */}
-                        {step === 'generating' && (
-                           <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="p-8 space-y-4 h-full overflow-y-auto"
-                           >
-                              <Skeleton className="h-16 w-full rounded-xl opacity-80" />
-                              <Skeleton className="h-16 w-full rounded-xl opacity-60" />
-                              <Skeleton className="h-16 w-full rounded-xl opacity-40" />
-                           </motion.div>
-                        )}
-
-                        {/* Review List - 2 Column Layout */}
-                        {step === 'review' && (
-                           <motion.div
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="grid md:grid-cols-2 h-full"
-                           >
-                              {/* Left Column: Scrollable List (iPhone Style) */}
-                              <div className="border-r border-gray-200 bg-[#F9F9F7] flex flex-col h-full">
-                                 {/* Control Header */}
-                                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-[#F9F9F7] z-10 shrink-0">
-                                    <div className="flex items-center gap-2">
-                                       <Checkbox
-                                          checked={selectedIndices.size === candidates.length && candidates.length > 0}
-                                          onCheckedChange={(checked) => {
-                                             if (checked) {
-                                                setSelectedIndices(new Set(candidates.map((_, i) => i)));
-                                             } else {
-                                                setSelectedIndices(new Set());
-                                             }
-                                          }}
-                                          className="data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent"
-                                       />
-                                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                          Total {candidates.length}
-                                       </span>
-                                    </div>
-
-                                    <Button
-                                       size="sm"
-                                       onClick={handleSave}
-                                       disabled={isSaving || selectedIndices.size === 0}
-                                       className="h-8 text-xs bg-braun-accent hover:bg-orange-700 text-white rounded-full px-4 transition-all shadow-sm"
-                                    >
-                                       {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : (
-                                          <>Save <span className="ml-1 opacity-80">{selectedIndices.size}</span></>
-                                       )}
-                                    </Button>
-                                 </div>
-
-                                 {/* Wheel Picker Container */}
-                                 <div className="flex-1 relative overflow-hidden">
-                                    <WheelPicker
-                                       items={candidates}
-                                       selectedIndex={focusedIndex}
-                                       onIndexChange={setFocusedIndex}
-                                       onToggleSelection={toggleSelection}
-                                       selectedIndices={selectedIndices}
-                                    />
-                                 </div>
-                              </div>
-
-                              {/* Right Column: Preview Detail */}
-                              <div className="bg-[#F4F4F0] p-6 md:p-8 flex flex-col items-center justify-center relative overflow-hidden h-full">
-                                 <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 absolute top-6 left-6">Preview</div>
-
-                                 {focusedIndex !== null && candidates[focusedIndex] ? (
-                                    <motion.div
-                                       key={focusedIndex}
-                                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                                       transition={{ duration: 0.2 }}
-                                       className="w-full max-w-[280px] h-[320px] bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 relative"
-                                    >
-                                       {candidates[focusedIndex].phonetic && (
-                                          <div className="mb-2 text-gray-400 text-xs md:text-sm font-mono tracking-wide">
-                                             /{candidates[focusedIndex].phonetic}/
-                                          </div>
-                                       )}
-
-                                       <h3 className="text-2xl md:text-3xl lg:text-4xl font-bold text-braun-text mb-4 md:mb-6 tracking-tight break-words max-w-full">
-                                          {candidates[focusedIndex].front}
-                                       </h3>
-
-                                       <div className="space-y-3 md:space-y-4 max-w-full">
-                                          <p className="text-gray-500 font-medium text-base md:text-lg">
-                                             {candidates[focusedIndex].translation}
-                                          </p>
-
-                                          {candidates[focusedIndex].definition && (
-                                             <p className="text-xs md:text-sm text-gray-400 leading-relaxed max-w-[180px] md:max-w-[200px] mx-auto line-clamp-3">
-                                                {candidates[focusedIndex].definition}
-                                             </p>
-                                          )}
-                                       </div>
-
-                                       {/* Selection Indicator on Card */}
-                                       <div className="absolute top-3 right-3 md:top-4 md:right-4">
-                                          <Checkbox
-                                             checked={selectedIndices.has(focusedIndex)}
-                                             onCheckedChange={() => toggleSelection(focusedIndex)}
-                                             className="data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent w-5 h-5 md:w-6 md:h-6 rounded-full"
-                                          />
-                                       </div>
-                                    </motion.div>
-                                 ) : (
-                                    <div className="text-gray-400 flex flex-col items-center gap-2">
-                                       <Sparkles className="w-8 h-8 opacity-20" />
-                                       <span>Select a card to preview</span>
-                                    </div>
-                                 )}
-                              </div>
-                           </motion.div>
-                        )}
-
-                        {/* Saved State */}
-                        {step === 'saved' && (
-                           <motion.div
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              className="text-center py-24 flex flex-col items-center justify-center h-full"
-                           >
-                              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                                 <Check className="w-8 h-8" />
-                              </div>
-                              <h3 className="text-xl font-semibold text-braun-text">Saved to Deck</h3>
-                              <p className="text-gray-500 mt-2">Redirecting to learning session...</p>
-                           </motion.div>
-                        )}
-                     </AnimatePresence>
-                  </div>
+                  /* Dynamic Card Generator - Lazy loaded with framer-motion */
+                  <HeroCardGenerator
+                     candidates={candidates}
+                     step={step}
+                     onStepChange={setStep}
+                  />
                )}
 
             </div>
@@ -361,4 +202,3 @@ export function Hero() {
       </section>
    );
 }
-
