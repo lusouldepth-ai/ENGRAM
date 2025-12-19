@@ -130,8 +130,8 @@ export function HeroCardGenerator({ candidates, step, onStepChange }: HeroCardGe
                         </div>
 
                         {/* Right Column: Preview Detail */}
-                        <div className="bg-[#F4F4F0] p-6 md:p-8 flex flex-col items-center justify-center relative overflow-hidden h-full">
-                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 absolute top-6 left-6">Preview</div>
+                        <div className="bg-[#F4F4F0] p-8 md:p-10 lg:p-12 flex flex-col items-center justify-center relative overflow-hidden h-full">
+                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest absolute top-6 left-6">Preview</div>
 
                             {focusedIndex !== null && candidates[focusedIndex] ? (
                                 <motion.div
@@ -139,43 +139,43 @@ export function HeroCardGenerator({ candidates, step, onStepChange }: HeroCardGe
                                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     transition={{ duration: 0.2 }}
-                                    className="w-full max-w-[280px] h-[320px] bg-white rounded-3xl shadow-xl border border-gray-200 flex flex-col items-center justify-center text-center p-6 relative"
+                                    className="w-full max-w-sm md:max-w-md aspect-[3/4] bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col items-center justify-center text-center p-8 md:p-10 relative"
                                 >
                                     {candidates[focusedIndex].phonetic && (
-                                        <div className="mb-2 text-gray-400 text-xs md:text-sm font-mono tracking-wide">
+                                        <div className="mb-3 text-gray-400 text-base md:text-lg font-mono tracking-wide">
                                             /{candidates[focusedIndex].phonetic}/
                                         </div>
                                     )}
 
-                                    <h3 className="text-2xl md:text-3xl lg:text-4xl font-bold text-braun-text mb-4 md:mb-6 tracking-tight break-words max-w-full">
+                                    <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-braun-text mb-6 tracking-tight break-words max-w-full">
                                         {candidates[focusedIndex].front}
                                     </h3>
 
-                                    <div className="space-y-3 md:space-y-4 max-w-full">
-                                        <p className="text-gray-500 font-medium text-base md:text-lg">
+                                    <div className="space-y-4 max-w-full">
+                                        <p className="text-gray-600 font-medium text-lg md:text-xl">
                                             {candidates[focusedIndex].translation}
                                         </p>
 
                                         {candidates[focusedIndex].definition && (
-                                            <p className="text-xs md:text-sm text-gray-400 leading-relaxed max-w-[180px] md:max-w-[200px] mx-auto line-clamp-3">
+                                            <p className="text-sm md:text-base text-gray-400 leading-relaxed max-w-[250px] mx-auto line-clamp-4">
                                                 {candidates[focusedIndex].definition}
                                             </p>
                                         )}
                                     </div>
 
                                     {/* Selection Indicator on Card */}
-                                    <div className="absolute top-3 right-3 md:top-4 md:right-4">
+                                    <div className="absolute top-4 right-4 md:top-5 md:right-5">
                                         <Checkbox
                                             checked={selectedIndices.has(focusedIndex)}
                                             onCheckedChange={() => toggleSelection(focusedIndex)}
-                                            className="data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent w-5 h-5 md:w-6 md:h-6 rounded-full"
+                                            className="data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent w-6 h-6 md:w-7 md:h-7 rounded-full"
                                         />
                                     </div>
                                 </motion.div>
                             ) : (
-                                <div className="text-gray-400 flex flex-col items-center gap-2">
-                                    <Sparkles className="w-8 h-8 opacity-20" />
-                                    <span>Select a card to preview</span>
+                                <div className="text-gray-400 flex flex-col items-center gap-3">
+                                    <Sparkles className="w-12 h-12 opacity-20" />
+                                    <span className="text-lg">Select a card to preview</span>
                                 </div>
                             )}
                         </div>
