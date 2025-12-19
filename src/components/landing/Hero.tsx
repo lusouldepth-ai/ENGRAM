@@ -141,36 +141,95 @@ export function Hero() {
                   /* Original Demo Content - Static, no framer-motion */
                   <div className="grid md:grid-cols-2 h-[600px] bg-[#F9F9F7]">
 
-                     {/* Left List */}
-                     <div className="p-6 border-r border-gray-200 hidden md:block overflow-y-auto">
-                        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">{t('hero.demo.list')}</div>
-                        <div className="space-y-2">
-                           <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-                              <div className="flex gap-3 items-center">
-                                 <div className="w-5 h-5 rounded bg-braun-accent flex items-center justify-center text-white">
-                                    <Check className="w-3 h-3" />
+                     {/* Left List - iOS Style 3D Wheel Picker */}
+                     <div className="border-r border-gray-200 hidden md:flex flex-col overflow-hidden relative">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-widest p-6 pb-4 shrink-0">{t('hero.demo.list')}</div>
+
+                        {/* 3D Wheel Container */}
+                        <div className="flex-1 relative flex items-center justify-center overflow-hidden" style={{ perspective: '1000px' }}>
+                           {/* Top/Bottom Gradient Overlays */}
+                           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-[#F9F9F7] to-transparent z-10 pointer-events-none" />
+                           <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-[#F9F9F7] to-transparent z-10 pointer-events-none" />
+
+                           {/* Selection Highlight Bar */}
+                           <div className="absolute inset-x-4 h-16 bg-white/60 border-y border-braun-accent/20 backdrop-blur-sm rounded-lg z-0" />
+
+                           {/* 3D Wheel Items */}
+                           <div className="relative w-full h-16" style={{ transformStyle: 'preserve-3d' }}>
+                              {/* Item 1 - Center (Selected) */}
+                              <div
+                                 className="absolute inset-x-4 h-16 flex items-center gap-4 px-4 backface-hidden"
+                                 style={{
+                                    transform: 'rotateX(0deg) translateZ(120px)',
+                                    transformOrigin: 'center center -120px'
+                                 }}
+                              >
+                                 <div className="w-6 h-6 rounded-md bg-braun-accent flex items-center justify-center text-white shrink-0">
+                                    <Check className="w-4 h-4" />
                                  </div>
-                                 <div>
-                                    <p className="font-medium text-sm text-braun-text">Ephemeral</p>
-                                    <p className="text-xs text-gray-500">短暂的，转瞬即逝的</p>
+                                 <div className="min-w-0">
+                                    <p className="font-semibold text-lg text-braun-text truncate">Ephemeral</p>
+                                    <p className="text-sm text-gray-500 truncate">短暂的，转瞬即逝的</p>
                                  </div>
                               </div>
-                           </div>
-                           <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm opacity-60">
-                              <div className="flex gap-3 items-center">
-                                 <div className="w-5 h-5 rounded border border-gray-200"></div>
-                                 <div>
-                                    <p className="font-medium text-sm text-braun-text">Serendipity</p>
-                                    <p className="text-xs text-gray-500">机缘凑巧</p>
+
+                              {/* Item 2 - Above */}
+                              <div
+                                 className="absolute inset-x-4 h-16 flex items-center gap-4 px-4 backface-hidden opacity-60"
+                                 style={{
+                                    transform: 'rotateX(-22deg) translateZ(120px)',
+                                    transformOrigin: 'center center -120px'
+                                 }}
+                              >
+                                 <div className="w-6 h-6 rounded-md border-2 border-gray-200 shrink-0" />
+                                 <div className="min-w-0">
+                                    <p className="font-semibold text-lg text-gray-400 truncate">Serendipity</p>
+                                    <p className="text-sm text-gray-400 truncate">机缘凑巧</p>
                                  </div>
                               </div>
-                           </div>
-                           <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm opacity-40">
-                              <div className="flex gap-3 items-center">
-                                 <div className="w-5 h-5 rounded border border-gray-200"></div>
-                                 <div>
-                                    <p className="font-medium text-sm text-braun-text">Eloquent</p>
-                                    <p className="text-xs text-gray-500">雄辩的</p>
+
+                              {/* Item 3 - Further Above */}
+                              <div
+                                 className="absolute inset-x-4 h-16 flex items-center gap-4 px-4 backface-hidden opacity-30"
+                                 style={{
+                                    transform: 'rotateX(-44deg) translateZ(120px)',
+                                    transformOrigin: 'center center -120px'
+                                 }}
+                              >
+                                 <div className="w-6 h-6 rounded-md border-2 border-gray-200 shrink-0" />
+                                 <div className="min-w-0">
+                                    <p className="font-semibold text-lg text-gray-300 truncate">Eloquent</p>
+                                    <p className="text-sm text-gray-300 truncate">雄辩的</p>
+                                 </div>
+                              </div>
+
+                              {/* Item 4 - Below */}
+                              <div
+                                 className="absolute inset-x-4 h-16 flex items-center gap-4 px-4 backface-hidden opacity-60"
+                                 style={{
+                                    transform: 'rotateX(22deg) translateZ(120px)',
+                                    transformOrigin: 'center center -120px'
+                                 }}
+                              >
+                                 <div className="w-6 h-6 rounded-md border-2 border-gray-200 shrink-0" />
+                                 <div className="min-w-0">
+                                    <p className="font-semibold text-lg text-gray-400 truncate">Luminous</p>
+                                    <p className="text-sm text-gray-400 truncate">发光的，明亮的</p>
+                                 </div>
+                              </div>
+
+                              {/* Item 5 - Further Below */}
+                              <div
+                                 className="absolute inset-x-4 h-16 flex items-center gap-4 px-4 backface-hidden opacity-30"
+                                 style={{
+                                    transform: 'rotateX(44deg) translateZ(120px)',
+                                    transformOrigin: 'center center -120px'
+                                 }}
+                              >
+                                 <div className="w-6 h-6 rounded-md border-2 border-gray-200 shrink-0" />
+                                 <div className="min-w-0">
+                                    <p className="font-semibold text-lg text-gray-300 truncate">Ethereal</p>
+                                    <p className="text-sm text-gray-300 truncate">轻飘的，空灵的</p>
                                  </div>
                               </div>
                            </div>
