@@ -9,12 +9,15 @@ const nextConfig = {
     // 启用 standalone 输出模式以支持 Docker 部署
     output: process.env.DOCKER_BUILD ? 'standalone' : undefined,
     // SWC 编译优化
-    compiler: {
-        // 移除 console.log 在生产环境
-        removeConsole: process.env.NODE_ENV === 'production' ? {
-            exclude: ['error', 'warn'],
-        } : false,
-    },
+    // 注意：removeConsole 在 Turbopack 模式下不支持
+    // 开发模式使用 Turbopack，所以不设置此选项；生产环境构建时会自动应用
+    ...(process.env.NODE_ENV === 'production' ? {
+        compiler: {
+            removeConsole: {
+                exclude: ['error', 'warn'],
+            },
+        },
+    } : {}),
     // 实验性优化
     experimental: {
         optimizePackageImports: [

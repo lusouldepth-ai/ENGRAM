@@ -11,6 +11,7 @@ import { type CardData } from "@/app/actions/save-cards";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Lazy load the card generator component - contains framer-motion and WheelPicker
 // This reduces initial bundle size by ~3MB as these are only loaded when user triggers generation
@@ -36,6 +37,7 @@ export function Hero() {
    const [isGenerating, startGenerating] = useTransition();
    const [step, setStep] = useState<'idle' | 'generating' | 'review' | 'saved'>('idle');
    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
    const inputRef = useRef<HTMLInputElement>(null);
 
    // 检查用户登录状态
@@ -58,9 +60,7 @@ export function Hero() {
 
       // 如果用户未登录，引导到登录页面
       if (isAuthenticated === false) {
-         if (window.confirm("请先登录，以便为您生成个性化单词卡片。")) {
-            router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-         }
+         setShowLoginPrompt(true);
          return;
       }
       
@@ -288,6 +288,57 @@ export function Hero() {
 
             </div>
          </div>
+
+         {/* Braun Style Login Prompt Modal */}
+         <AnimatePresence>
+            {showLoginPrompt && (
+               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  {/* Backdrop */}
+                  <motion.div 
+                     initial={{ opacity: 0 }}
+                     animate={{ opacity: 1 }}
+                     exit={{ opacity: 0 }}
+                     onClick={() => setShowLoginPrompt(false)}
+                     className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+                  />
+                  
+                  {/* Modal Content */}
+                  <motion.div 
+                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                     className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 flex flex-col items-center text-center"
+                  >
+                     <div className="w-16 h-16 bg-[#F9F9F7] rounded-full flex items-center justify-center mb-6">
+                        <Sparkles className="w-8 h-8 text-braun-accent" />
+                     </div>
+                     
+                     <h3 className="text-2xl font-bold text-braun-text mb-3 tracking-tight">
+                        开始个性化学习
+                     </h3>
+                     
+                     <p className="text-gray-500 mb-8 leading-relaxed">
+                        请先登录，以便为您生成并保存符合您英语水平的个性化单词卡片。
+                     </p>
+                     
+                     <div className="flex flex-col w-full gap-3">
+                        <Button 
+                           onClick={() => router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`)}
+                           className="w-full bg-braun-accent hover:bg-orange-700 text-white rounded-full h-12 text-lg font-medium shadow-lg shadow-orange-200 transition-all"
+                        >
+                           立即登录
+                        </Button>
+                        <button 
+                           onClick={() => setShowLoginPrompt(false)}
+                           className="w-full h-12 text-gray-400 hover:text-braun-text font-medium transition-colors"
+                        >
+                           稍后再说
+                        </button>
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
       </section>
    );
 }
