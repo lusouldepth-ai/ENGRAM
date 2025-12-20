@@ -5,11 +5,12 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, Check, Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { generateCards } from "@/app/actions/generate-cards";
 import { type CardData } from "@/app/actions/save-cards";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 // Lazy load the card generator component - contains framer-motion and WheelPicker
 // This reduces initial bundle size by ~3MB as these are only loaded when user triggers generation
@@ -34,10 +35,35 @@ export function Hero() {
    const [candidates, setCandidates] = useState<CardData[]>([]);
    const [isGenerating, startGenerating] = useTransition();
    const [step, setStep] = useState<'idle' | 'generating' | 'review' | 'saved'>('idle');
+   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
    const inputRef = useRef<HTMLInputElement>(null);
+
+   // 检查用户登录状态
+   useEffect(() => {
+      const checkAuth = async () => {
+         const supabase = createClient();
+         const { data: { user } } = await supabase.auth.getUser();
+         setIsAuthenticated(!!user);
+      };
+      checkAuth();
+   }, []);
 
    const handleGenerate = () => {
       if (!input.trim()) return;
+      
+      // 如果还在检查登录状态，显示加载提示或静默等待
+      if (isAuthenticated === null) {
+         return;
+      }
+
+      // 如果用户未登录，引导到登录页面
+      if (isAuthenticated === false) {
+         if (window.confirm("请先登录，以便为您生成个性化单词卡片。")) {
+            router.push(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+         }
+         return;
+      }
+      
       setStep('generating');
       startGenerating(async () => {
          try {
@@ -49,6 +75,10 @@ export function Hero() {
                setStep('idle');
                if (result.error === "QUOTA_EXCEEDED") {
                   router.push('/pricing');
+                  return;
+               }
+               if (result.error === "Unauthorized") {
+                  router.push('/login?redirect=/');
                   return;
                }
                alert("Failed to generate cards: " + (result.error || "Unknown error"));

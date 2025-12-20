@@ -15,7 +15,9 @@ interface WheelPickerProps {
 
 // --- Configuration ---
 const ITEM_HEIGHT = 64;
-const ROTATION_PER_ITEM = 18; // degrees
+const ROTATION_PER_ITEM = 20; // degrees per item on the cylinder
+const CYLINDER_RADIUS = 120; // virtual cylinder radius in px
+const VISIBLE_ITEMS_BUFFER = 6; // items to render above/below center
 
 // --- Audio Hook ---
 function useWheelSound(selectedIndex: number) {
@@ -38,6 +40,16 @@ function useWheelSound(selectedIndex: number) {
     }, [selectedIndex]);
 }
 
+/**
+ * iOS-style 3D Wheel Picker Component
+ * 
+ * Uses dual-layer architecture:
+ * 1. Visual Layer: 3D transformed items (pointer-events: none)
+ * 2. Interaction Layer: Invisible scroll container with CSS snap
+ * 
+ * This separation allows for proper 3D transforms with translateZ
+ * while maintaining reliable touch/click interactions.
+ */
 export function WheelPicker({
     items,
     selectedIndex,
@@ -46,54 +58,46 @@ export function WheelPicker({
     selectedIndices
 }: WheelPickerProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const [scrollProgress, setScrollProgress] = useState(0);
-    const isScrolling = useRef(false);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
     const scrollEndTimer = useRef<NodeJS.Timeout | null>(null);
 
     useWheelSound(selectedIndex);
 
-    // Handle scroll with debounced snap
+    // Calculate center index from scroll position
+    const centerIndex = Math.round(scrollTop / ITEM_HEIGHT);
+
+    // Initial scroll position
+    useEffect(() => {
+        if (scrollRef.current) {
+            const initialScroll = selectedIndex * ITEM_HEIGHT;
+            scrollRef.current.scrollTop = initialScroll;
+            setScrollTop(initialScroll);
+        }
+    }, []);
+
+    // Handle scroll events
     const handleScroll = useCallback(() => {
         if (!scrollRef.current) return;
+        const scroll = scrollRef.current.scrollTop;
+        setScrollTop(scroll);
 
-        const scrollTop = scrollRef.current.scrollTop;
-        setScrollProgress(scrollTop);
-
-        const newIndex = Math.round(scrollTop / ITEM_HEIGHT);
+        const newIndex = Math.round(scroll / ITEM_HEIGHT);
         if (newIndex >= 0 && newIndex < items.length && newIndex !== selectedIndex) {
             onIndexChange(newIndex);
         }
 
         // Debounce scroll end detection
-        isScrolling.current = true;
+        setIsDragging(true);
         if (scrollEndTimer.current) clearTimeout(scrollEndTimer.current);
         scrollEndTimer.current = setTimeout(() => {
-            isScrolling.current = false;
-            // Snap to nearest item
-            if (scrollRef.current) {
-                const snapIndex = Math.round(scrollRef.current.scrollTop / ITEM_HEIGHT);
-                const clampedIndex = Math.max(0, Math.min(snapIndex, items.length - 1));
-                scrollRef.current.scrollTo({
-                    top: clampedIndex * ITEM_HEIGHT,
-                    behavior: "smooth"
-                });
-            }
-        }, 80);
+            setIsDragging(false);
+        }, 150);
     }, [items.length, selectedIndex, onIndexChange]);
 
-    // Initial scroll position
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = selectedIndex * ITEM_HEIGHT;
-            setScrollProgress(selectedIndex * ITEM_HEIGHT);
-        }
-    }, []);
-
-    // Handle item click - CRITICAL: Use onPointerDown for reliability
-    const handleItemPointerDown = useCallback((index: number) => {
-        console.log("🎯 Item clicked:", index, items[index]?.front);
-
-        // If not the current center item, scroll to it
+    // Handle item click from the interaction layer
+    const handleItemClick = useCallback((index: number) => {
+        // If not the current center item, scroll to it first
         if (index !== selectedIndex) {
             scrollRef.current?.scrollTo({
                 top: index * ITEM_HEIGHT,
@@ -101,107 +105,94 @@ export function WheelPicker({
             });
             onIndexChange(index);
         }
-
         // Toggle selection
         onToggleSelection(index);
-    }, [selectedIndex, onIndexChange, onToggleSelection, items]);
+    }, [selectedIndex, onIndexChange, onToggleSelection]);
+
+    // Calculate which items to render (virtualization)
+    const minRenderIndex = Math.max(0, centerIndex - VISIBLE_ITEMS_BUFFER);
+    const maxRenderIndex = Math.min(items.length - 1, centerIndex + VISIBLE_ITEMS_BUFFER);
+
+    const visibleItems = [];
+    for (let i = minRenderIndex; i <= maxRenderIndex; i++) {
+        visibleItems.push({ index: i, item: items[i] });
+    }
 
     return (
         <div className="relative w-full h-full bg-[#F9F9F7] overflow-hidden">
-            {/* Center Selection Highlight */}
-            <div
-                className="absolute left-2 right-2 top-1/2 -translate-y-1/2 bg-white/50 border-y-2 border-braun-accent/30 backdrop-blur-sm rounded-xl pointer-events-none z-0"
-                style={{ height: ITEM_HEIGHT + 12 }}
-            />
 
-            {/* SCROLL CONTAINER - CSS Scroll Snap */}
+            {/* ═══════════════════════════════════════════════════════════════
+                LAYER 1: Visual 3D Wheel (pointer-events: none)
+                This layer displays the beautiful 3D cylinder effect
+            ═══════════════════════════════════════════════════════════════ */}
             <div
-                ref={scrollRef}
-                className="absolute inset-0 overflow-y-auto no-scrollbar z-10"
-                onScroll={handleScroll}
-                style={{
-                    scrollSnapType: "y mandatory",
-                    // Container perspective for 3D children
-                    perspective: "800px",
-                    perspectiveOrigin: "center center",
-                }}
+                className="absolute inset-0 overflow-hidden flex items-center justify-center pointer-events-none"
+                style={{ perspective: "800px" }}
             >
-                {/* Top Spacer */}
-                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
-
-                {/* ITEMS - Using normal document flow, not absolute positioning */}
                 <div
-                    className="relative"
+                    className="relative w-full h-full"
                     style={{ transformStyle: "preserve-3d" }}
                 >
-                    {items.map((item, index) => {
-                        // Calculate offset from center
-                        const scrollTop = scrollProgress;
-                        const itemCenter = index * ITEM_HEIGHT;
-                        const offset = (scrollTop - itemCenter) / ITEM_HEIGHT;
+                    {visibleItems.map(({ index, item }) => {
+                        // Calculate offset from center (in "item units", float)
+                        const offset = (index * ITEM_HEIGHT - scrollTop) / ITEM_HEIGHT;
                         const absOffset = Math.abs(offset);
 
-                        // 3D transforms - KEEP translateZ small to not break hit testing
-                        const rotateX = offset * ROTATION_PER_ITEM;
-                        // Use scale instead of translateZ for depth effect
-                        const scale = Math.max(0.85, 1 - absOffset * 0.08);
-                        const opacity = Math.max(0.3, 1 - absOffset * 0.4);
-                        const isFocused = selectedIndex === index;
+                        // 3D Cylinder Rotation
+                        const rotateX = offset * -ROTATION_PER_ITEM;
+
+                        // Visual effects based on distance from center
+                        const opacity = Math.max(0.15, 1 - Math.pow(absOffset / 3.5, 2)); // Quadratic fade
+                        const scale = Math.max(0.8, 1 - absOffset * 0.06);
+                        const isActive = absOffset < 0.4;
                         const isSelected = selectedIndices.has(index);
 
                         return (
                             <div
-                                key={`item-${index}`}
+                                key={`visual-${index}`}
                                 className={cn(
-                                    "relative flex items-center gap-4 px-4 mx-2 rounded-xl cursor-pointer select-none",
-                                    "transition-colors duration-100",
-                                    // DEBUG BORDERS - REMOVE AFTER FIXING
-                                    isFocused
-                                        ? "border-2 border-red-500 bg-white/30"
-                                        : "border border-blue-300/50",
-                                    // Hover state
-                                    "hover:bg-white/40 active:bg-white/60"
+                                    "absolute left-2 right-2 top-1/2 flex items-center gap-3 px-4 rounded-xl backface-hidden transition-colors duration-100",
+                                    isActive ? "bg-white/60 shadow-sm" : "bg-transparent"
                                 )}
                                 style={{
                                     height: ITEM_HEIGHT,
-                                    scrollSnapAlign: "center",
-                                    // 3D Transform - No translateZ to keep hit testing working
-                                    transform: `rotateX(${rotateX}deg) scale(${scale})`,
+                                    marginTop: -ITEM_HEIGHT / 2,
+                                    transform: `
+                                        rotateX(${rotateX}deg)
+                                        translateZ(${CYLINDER_RADIUS}px)
+                                        scale(${scale})
+                                    `,
                                     transformOrigin: "center center",
                                     opacity,
-                                    // z-index based on distance from center (closer = higher)
-                                    zIndex: 100 - Math.round(absOffset * 10),
-                                    // CRITICAL: Ensure clickable
-                                    pointerEvents: "auto",
-                                }}
-                                // Use onPointerDown instead of onClick for better reliability
-                                onPointerDown={(e) => {
-                                    e.stopPropagation();
-                                    handleItemPointerDown(index);
+                                    zIndex: Math.round(100 - absOffset * 10),
                                 }}
                             >
-                                {/* Checkbox */}
+                                {/* Checkbox Visual */}
                                 <div
                                     className={cn(
-                                        "w-7 h-7 rounded-lg border-2 flex items-center justify-center shrink-0",
-                                        "transition-all duration-150",
+                                        "w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all duration-150",
                                         isSelected
-                                            ? "bg-braun-accent border-braun-accent text-white shadow-lg"
-                                            : "bg-white border-gray-300"
+                                            ? "bg-braun-accent border-braun-accent text-white shadow-md"
+                                            : "bg-white/80 border-gray-300"
                                     )}
                                 >
                                     {isSelected && <Check className="w-4 h-4" strokeWidth={3} />}
                                 </div>
 
-                                {/* Text */}
+                                {/* Text Content */}
                                 <div className="flex-1 min-w-0">
                                     <p className={cn(
-                                        "font-semibold truncate",
-                                        isFocused ? "text-lg text-braun-text" : "text-base text-gray-600"
+                                        "font-semibold truncate transition-all duration-100",
+                                        isActive
+                                            ? "text-lg text-braun-text"
+                                            : "text-base text-gray-500"
                                     )}>
                                         {item.front}
                                     </p>
-                                    <p className="text-sm text-gray-500 truncate">
+                                    <p className={cn(
+                                        "text-sm truncate transition-opacity duration-100",
+                                        isActive ? "text-gray-500" : "text-gray-400"
+                                    )}>
                                         {item.translation}
                                     </p>
                                 </div>
@@ -209,14 +200,68 @@ export function WheelPicker({
                         );
                     })}
                 </div>
-
-                {/* Bottom Spacer */}
-                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
             </div>
 
-            {/* Gradient Overlays - pointer-events: none */}
-            <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-[#F9F9F7] to-transparent pointer-events-none z-20" />
-            <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-[#F9F9F7] to-transparent pointer-events-none z-20" />
+            {/* ═══════════════════════════════════════════════════════════════
+                Center Selection Highlight
+                Warm glass panel with subtle orange accent border
+            ═══════════════════════════════════════════════════════════════ */}
+            <div
+                className="absolute left-3 right-3 top-1/2 -translate-y-1/2 bg-white/40 border-y-2 border-braun-accent/25 backdrop-blur-sm rounded-2xl pointer-events-none z-10"
+                style={{ height: ITEM_HEIGHT + 16 }}
+            />
+
+            {/* ═══════════════════════════════════════════════════════════════
+                LAYER 2: Interaction Layer (invisible scroller)
+                Handles all touch/scroll interactions with CSS snap
+            ═══════════════════════════════════════════════════════════════ */}
+            <div
+                ref={scrollRef}
+                onScroll={handleScroll}
+                className="absolute inset-0 overflow-y-auto no-scrollbar z-20"
+                style={{
+                    scrollSnapType: isDragging ? "none" : "y mandatory",
+                    scrollBehavior: isDragging ? "auto" : "smooth",
+                    // Center the first item vertically
+                    paddingTop: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
+                    paddingBottom: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
+                }}
+            >
+                {items.map((_, index) => (
+                    <div
+                        key={`scroll-${index}`}
+                        className="w-full cursor-pointer"
+                        style={{
+                            height: ITEM_HEIGHT,
+                            scrollSnapAlign: "center",
+                        }}
+                        onClick={() => handleItemClick(index)}
+                    />
+                ))}
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════════
+                LAYER 3: Gradient Overlays
+                Fade items at top and bottom for depth effect
+            ═══════════════════════════════════════════════════════════════ */}
+            <div
+                className="absolute top-0 inset-x-0 h-28 pointer-events-none z-30"
+                style={{
+                    background: `linear-gradient(to bottom, 
+                        rgba(249,249,247,1) 0%, 
+                        rgba(249,249,247,0.8) 40%,
+                        rgba(249,249,247,0) 100%)`
+                }}
+            />
+            <div
+                className="absolute bottom-0 inset-x-0 h-28 pointer-events-none z-30"
+                style={{
+                    background: `linear-gradient(to top, 
+                        rgba(249,249,247,1) 0%, 
+                        rgba(249,249,247,0.8) 40%,
+                        rgba(249,249,247,0) 100%)`
+                }}
+            />
         </div>
     );
 }
