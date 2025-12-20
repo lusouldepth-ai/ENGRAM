@@ -222,11 +222,11 @@ export function WheelPicker({
                 style={{
                     scrollSnapType: isDragging ? "none" : "y mandatory",
                     scrollBehavior: isDragging ? "auto" : "smooth",
-                    // Center the first item vertically
-                    paddingTop: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
-                    paddingBottom: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
                 }}
             >
+                {/* Spacer to center the first item */}
+                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
+
                 {items.map((_, index) => (
                     <div
                         key={`scroll-${index}`}
@@ -238,6 +238,9 @@ export function WheelPicker({
                         onClick={() => handleItemClick(index)}
                     />
                 ))}
+
+                {/* Spacer to center the last item */}
+                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════
