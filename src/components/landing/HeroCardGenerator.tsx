@@ -87,27 +87,21 @@ export function HeroCardGenerator({ candidates, step, onStepChange }: HeroCardGe
                         {/* Left Column: Scrollable List (iPhone Style) */}
                         <div className="border-r border-gray-200 bg-[#F9F9F7] flex flex-col h-full">
                             {/* Control Header */}
-                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-[#F9F9F7]/80 backdrop-blur-md z-10 shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div 
-                                        onClick={() => {
-                                            if (selectedIndices.size === candidates.length) {
-                                                setSelectedIndices(new Set());
-                                            } else {
+                            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-[#F9F9F7] z-10 shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        checked={selectedIndices.size === candidates.length && candidates.length > 0}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
                                                 setSelectedIndices(new Set(candidates.map((_, i) => i)));
+                                            } else {
+                                                setSelectedIndices(new Set());
                                             }
                                         }}
-                                        className={cn(
-                                            "w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all duration-200",
-                                            selectedIndices.size === candidates.length && candidates.length > 0
-                                                ? "bg-braun-accent border-braun-accent text-white"
-                                                : "bg-white border-gray-300"
-                                        )}
-                                    >
-                                        {selectedIndices.size === candidates.length && candidates.length > 0 && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
-                                    </div>
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                                        SELECTED {selectedIndices.size}/{candidates.length}
+                                        className="data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent"
+                                    />
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                        Total {candidates.length}
                                     </span>
                                 </div>
 
@@ -115,9 +109,11 @@ export function HeroCardGenerator({ candidates, step, onStepChange }: HeroCardGe
                                     size="sm"
                                     onClick={handleSave}
                                     disabled={isSaving || selectedIndices.size === 0}
-                                    className="h-9 px-5 bg-braun-accent hover:bg-orange-700 text-white rounded-full text-xs font-bold transition-all shadow-md shadow-orange-100 active:scale-95 disabled:opacity-50 disabled:grayscale"
+                                    className="h-8 text-xs bg-braun-accent hover:bg-orange-700 text-white rounded-full px-4 transition-all shadow-sm"
                                 >
-                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "GENERATE DECK"}
+                                    {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : (
+                                        <>Save <span className="ml-1 opacity-80">{selectedIndices.size}</span></>
+                                    )}
                                 </Button>
                             </div>
 
@@ -151,37 +147,29 @@ export function HeroCardGenerator({ candidates, step, onStepChange }: HeroCardGe
                                         </div>
                                     )}
 
-                                    <h3 className="text-4xl md:text-5xl lg:text-6xl font-black text-braun-text mb-8 tracking-tighter break-words max-w-full leading-none">
+                                    <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-braun-text mb-6 tracking-tight break-words max-w-full">
                                         {candidates[focusedIndex].front}
                                     </h3>
 
-                                    <div className="space-y-6 max-w-full">
-                                        <div className="inline-block px-4 py-1.5 bg-braun-accent/5 rounded-full">
-                                            <p className="text-braun-accent font-bold text-lg md:text-xl tracking-tight">
-                                                {candidates[focusedIndex].translation}
-                                            </p>
-                                        </div>
+                                    <div className="space-y-4 max-w-full">
+                                        <p className="text-gray-600 font-medium text-lg md:text-xl">
+                                            {candidates[focusedIndex].translation}
+                                        </p>
 
                                         {candidates[focusedIndex].definition && (
-                                            <p className="text-sm md:text-base text-gray-400 leading-relaxed max-w-[280px] mx-auto line-clamp-4 font-medium">
+                                            <p className="text-sm md:text-base text-gray-400 leading-relaxed max-w-[250px] mx-auto line-clamp-4">
                                                 {candidates[focusedIndex].definition}
                                             </p>
                                         )}
                                     </div>
 
-                                    {/* Selection Indicator on Card - Braun Style */}
-                                    <div className="absolute top-6 right-6 md:top-8 md:right-8">
-                                        <div 
-                                            onClick={() => toggleSelection(focusedIndex)}
-                                            className={cn(
-                                                "w-10 h-10 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 shadow-sm",
-                                                selectedIndices.has(focusedIndex)
-                                                    ? "bg-braun-accent border-braun-accent text-white rotate-0"
-                                                    : "bg-white border-gray-100 text-transparent -rotate-12 hover:rotate-0 hover:border-gray-200"
-                                            )}
-                                        >
-                                            <Check className="w-5 h-5" strokeWidth={4} />
-                                        </div>
+                                    {/* Selection Indicator on Card */}
+                                    <div className="absolute top-4 right-4 md:top-5 md:right-5">
+                                        <Checkbox
+                                            checked={selectedIndices.has(focusedIndex)}
+                                            onCheckedChange={() => toggleSelection(focusedIndex)}
+                                            className="data-[state=checked]:bg-braun-accent data-[state=checked]:border-braun-accent w-6 h-6 md:w-7 md:h-7 rounded-full"
+                                        />
                                     </div>
                                 </motion.div>
                             ) : (

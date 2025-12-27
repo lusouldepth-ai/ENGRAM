@@ -26,8 +26,6 @@ function LoginPageContent() {
       setMode('signup');
     }
   }, [searchParams]);
-  
-  const redirectTo = searchParams?.get('redirect') || '/dashboard';
 
   const handleAuth = async (e: React.FormEvent) => {
     // 延迟创建 Supabase 客户端，避免构建时访问
@@ -80,12 +78,8 @@ function LoginPageContent() {
             .eq('id', authData.user.id)
             .single();
 
-          // Redirect based on onboarding status and redirect parameter
-          if (!profile?.onboarding_completed) {
-            router.push('/onboarding');
-          } else {
-            router.push(redirectTo);
-          }
+          // Redirect based on onboarding status
+          router.push(profile?.onboarding_completed ? '/dashboard' : '/onboarding');
           router.refresh();
         }
       }

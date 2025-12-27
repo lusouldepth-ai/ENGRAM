@@ -14,10 +14,10 @@ interface WheelPickerProps {
 }
 
 // --- Configuration ---
-const ITEM_HEIGHT = 68; // Slightly taller for better readability
-const ROTATION_PER_ITEM = 18; // Subtler rotation
-const CYLINDER_RADIUS = 140; // Larger radius for smoother curve
-const VISIBLE_ITEMS_BUFFER = 5; // Optimized buffer
+const ITEM_HEIGHT = 64;
+const ROTATION_PER_ITEM = 20; // degrees per item on the cylinder
+const CYLINDER_RADIUS = 120; // virtual cylinder radius in px
+const VISIBLE_ITEMS_BUFFER = 6; // items to render above/below center
 
 // --- Audio Hook ---
 function useWheelSound(selectedIndex: number) {
@@ -142,21 +142,21 @@ export function WheelPicker({
                         const rotateX = offset * -ROTATION_PER_ITEM;
 
                         // Visual effects based on distance from center
-                        const opacity = Math.max(0.1, 1 - Math.pow(absOffset / 3.2, 2)); // Sharper quadratic fade
-                        const scale = Math.max(0.85, 1 - absOffset * 0.05);
-                        const isActive = absOffset < 0.45;
+                        const opacity = Math.max(0.15, 1 - Math.pow(absOffset / 3.5, 2)); // Quadratic fade
+                        const scale = Math.max(0.8, 1 - absOffset * 0.06);
+                        const isActive = absOffset < 0.4;
                         const isSelected = selectedIndices.has(index);
 
                         return (
                             <div
                                 key={`visual-${index}`}
                                 className={cn(
-                                    "absolute left-3 right-3 top-1/2 flex items-center gap-4 px-5 rounded-2xl backface-hidden transition-all duration-200 ease-out",
-                                    isActive ? "bg-white shadow-[0_4px_12px_rgba(0,0,0,0.03)] scale-100" : "bg-transparent scale-95"
+                                    "absolute left-2 right-2 top-1/2 flex items-center gap-3 px-4 rounded-xl backface-hidden transition-colors duration-100",
+                                    isActive ? "bg-white/60 shadow-sm" : "bg-transparent"
                                 )}
                                 style={{
-                                    height: ITEM_HEIGHT - 8,
-                                    marginTop: -(ITEM_HEIGHT - 8) / 2,
+                                    height: ITEM_HEIGHT,
+                                    marginTop: -ITEM_HEIGHT / 2,
                                     transform: `
                                         rotateX(${rotateX}deg)
                                         translateZ(${CYLINDER_RADIUS}px)
@@ -167,31 +167,31 @@ export function WheelPicker({
                                     zIndex: Math.round(100 - absOffset * 10),
                                 }}
                             >
-                                {/* Checkbox Visual - Braun Style */}
+                                {/* Checkbox Visual */}
                                 <div
                                     className={cn(
-                                        "w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all duration-300 ease-in-out",
+                                        "w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all duration-150",
                                         isSelected
-                                            ? "bg-braun-accent border-braun-accent text-white shadow-[0_2px_8px_rgba(234,88,12,0.3)]"
-                                            : "bg-white/90 border-gray-200"
+                                            ? "bg-braun-accent border-braun-accent text-white shadow-md"
+                                            : "bg-white/80 border-gray-300"
                                     )}
                                 >
-                                    {isSelected && <Check className="w-4 h-4" strokeWidth={3.5} />}
+                                    {isSelected && <Check className="w-4 h-4" strokeWidth={3} />}
                                 </div>
 
                                 {/* Text Content */}
                                 <div className="flex-1 min-w-0">
                                     <p className={cn(
-                                        "font-bold truncate transition-all duration-200 tracking-tight",
+                                        "font-semibold truncate transition-all duration-100",
                                         isActive
-                                            ? "text-[1.1rem] text-braun-text"
-                                            : "text-base text-gray-400"
+                                            ? "text-lg text-braun-text"
+                                            : "text-base text-gray-500"
                                     )}>
                                         {item.front}
                                     </p>
                                     <p className={cn(
-                                        "text-xs font-medium truncate transition-opacity duration-200",
-                                        isActive ? "text-braun-accent/80" : "text-gray-300"
+                                        "text-sm truncate transition-opacity duration-100",
+                                        isActive ? "text-gray-500" : "text-gray-400"
                                     )}>
                                         {item.translation}
                                     </p>
@@ -204,14 +204,12 @@ export function WheelPicker({
 
             {/* ═══════════════════════════════════════════════════════════════
                 Center Selection Highlight
-                Minimal Braun glass panel
+                Warm glass panel with subtle orange accent border
             ═══════════════════════════════════════════════════════════════ */}
             <div
-                className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none z-10 px-2"
-                style={{ height: ITEM_HEIGHT }}
-            >
-                <div className="w-full h-full bg-white/30 backdrop-blur-[2px] border-y border-gray-100 rounded-xl" />
-            </div>
+                className="absolute left-3 right-3 top-1/2 -translate-y-1/2 bg-white/40 border-y-2 border-braun-accent/25 backdrop-blur-sm rounded-2xl pointer-events-none z-10"
+                style={{ height: ITEM_HEIGHT + 16 }}
+            />
 
             {/* ═══════════════════════════════════════════════════════════════
                 LAYER 2: Interaction Layer (invisible scroller)
@@ -224,11 +222,11 @@ export function WheelPicker({
                 style={{
                     scrollSnapType: isDragging ? "none" : "y mandatory",
                     scrollBehavior: isDragging ? "auto" : "smooth",
+                    // Center the first item vertically
+                    paddingTop: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
+                    paddingBottom: `calc(50% - ${ITEM_HEIGHT / 2}px)`,
                 }}
             >
-                {/* Spacer to center the first item */}
-                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
-
                 {items.map((_, index) => (
                     <div
                         key={`scroll-${index}`}
@@ -240,9 +238,6 @@ export function WheelPicker({
                         onClick={() => handleItemClick(index)}
                     />
                 ))}
-
-                {/* Spacer to center the last item */}
-                <div style={{ height: `calc(50% - ${ITEM_HEIGHT / 2}px)` }} />
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════
