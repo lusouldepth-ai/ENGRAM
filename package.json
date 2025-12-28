@@ -37,6 +37,7 @@
     "dotenv": "^17.2.3",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.554.0",
+    "motion": "^12.23.26",
     "next": "14.2.33",
     "openai": "^6.9.1",
     "react": "^18",

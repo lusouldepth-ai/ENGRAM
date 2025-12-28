@@ -11,6 +11,11 @@ const GlobalWordMenu = dynamic(
   { ssr: false }
 );
 
+const SplashCursor = dynamic(
+  () => import('@/components/SplashCursor'),
+  { ssr: false }
+);
+
 export const metadata: Metadata = {
   title: "ENGRAM",
   description: "Carve it in your mind.",
@@ -37,6 +42,7 @@ export default function RootLayout({
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} crossOrigin="anonymous" />
       </head>
       <body className={cn("font-sans antialiased")}>
+        <SplashCursor />
         <LanguageProvider>
           {children}
           <GlobalWordMenu />
