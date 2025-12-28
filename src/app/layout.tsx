@@ -11,10 +11,8 @@ const GlobalWordMenu = dynamic(
   { ssr: false }
 );
 
-const SplashCursor = dynamic(
-  () => import('@/components/SplashCursor'),
-  { ssr: false }
-);
+// SplashCursor is a heavy WebGL component (36KB, 1100+ lines)
+// Only load it on landing page for performance - moved to page.tsx
 
 export const metadata: Metadata = {
   title: "ENGRAM",
@@ -42,7 +40,6 @@ export default function RootLayout({
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} crossOrigin="anonymous" />
       </head>
       <body className={cn("font-sans antialiased")}>
-        <SplashCursor />
         <LanguageProvider>
           {children}
           <GlobalWordMenu />

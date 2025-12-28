@@ -26,12 +26,10 @@ function isValidDate(date: unknown): boolean {
  */
 function parseDateSafely(dateStr: string | null | undefined): Date {
     if (!dateStr) {
-        console.warn('⚠️ [FSRS] due 字段为空，使用当前时间作为回退');
         return new Date();
     }
     const parsed = new Date(dateStr);
     if (!isValidDate(parsed)) {
-        console.warn(`⚠️ [FSRS] 无效的日期格式: "${dateStr}"，使用当前时间作为回退`);
         return new Date();
     }
     return parsed;
@@ -104,48 +102,27 @@ export function processReview(
         scheduled_days: 0,
     };
 
-    console.log('📊 [FSRS DEBUG] Input card state:', {
-        due: cardInput.due.toISOString(),
-        stability: cardInput.stability,
-        difficulty: cardInput.difficulty,
-        reps: cardInput.reps,
-        state: cardInput.state,
-        rating: rating,
-        fsrsGrade: fsrsGrade,
-    });
-
     // 使用 FSRS 算法计算下一次复习
     const result: RecordLogItem = f.next(cardInput, now, fsrsGrade);
     const nextCard = result.card;
-
-    console.log('📊 [FSRS DEBUG] Output card:', {
-        due: nextCard.due,
-        scheduled_days: nextCard.scheduled_days,
-        stability: nextCard.stability,
-        difficulty: nextCard.difficulty,
-        state: nextCard.state,
-    });
 
     // 验证返回的日期是否有效，使用多层回退策略
     let dueDate: Date;
     if (isValidDate(nextCard.due)) {
         dueDate = nextCard.due;
     } else {
-        console.warn('⚠️ [FSRS] 计算结果的 due 日期无效');
         // 尝试使用 scheduled_days 计算
         const scheduledMs = nextCard.scheduled_days * 24 * 60 * 60 * 1000;
         if (!isNaN(scheduledMs) && isFinite(scheduledMs)) {
             dueDate = new Date(now.getTime() + scheduledMs);
         } else {
             // 最终回退：使用当前时间 + 10 分钟
-            console.warn('⚠️ [FSRS] scheduled_days 也无效，使用 now + 10 分钟作为回退');
             dueDate = new Date(now.getTime() + 10 * 60 * 1000);
         }
     }
 
     // 最终安全检查
     if (!isValidDate(dueDate)) {
-        console.error('🚨 [FSRS] 所有日期计算均失败，强制使用当前时间');
         dueDate = new Date();
     }
 
@@ -239,8 +216,7 @@ export function previewAllRatings(currentCard: {
                 scheduledDays: actualDays,
                 display: getScheduleDescription(actualDays),
             };
-        } catch (error) {
-            console.error(`⚠️ [FSRS] 预览 ${rating} 失败:`, error);
+        } catch {
             // 使用默认值回退
             const defaults = { forgot: '1m', hard: '10m', good: '1d', easy: '4d' };
             result[rating] = {
