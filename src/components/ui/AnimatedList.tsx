@@ -2,7 +2,8 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, useInView } from 'motion/react';
-import './AnimatedList.css';
+import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 
 interface AnimatedItemProps {
     children: React.ReactNode;
@@ -25,7 +26,7 @@ const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick }: Ani
             initial={{ scale: 0.7, opacity: 0 }}
             animate={inView ? { scale: 1, opacity: 1 } : { scale: 0.7, opacity: 0 }}
             transition={{ duration: 0.2, delay }}
-            className="animated-item-wrapper"
+            className="mb-2 cursor-pointer"
         >
             {children}
         </motion.div>
@@ -38,7 +39,7 @@ export interface VocabItem {
 }
 
 interface AnimatedListProps {
-    items?: VocabItem[];
+    items: VocabItem[];
     onItemSelect?: (item: VocabItem, index: number) => void;
     showGradients?: boolean;
     enableArrowNavigation?: boolean;
@@ -49,16 +50,7 @@ interface AnimatedListProps {
 }
 
 const AnimatedList = ({
-    items = [
-        { word: 'Ephemeral', translation: '短暂的，转瞬即逝的' },
-        { word: 'Serendipity', translation: '机缘凑巧' },
-        { word: 'Eloquent', translation: '雄辩的' },
-        { word: 'Luminous', translation: '发光的，明亮的' },
-        { word: 'Ethereal', translation: '轻飘的，空灵的' },
-        { word: 'Resilient', translation: '有弹性的，坚韧的' },
-        { word: 'Mellifluous', translation: '甜美流畅的' },
-        { word: 'Ubiquitous', translation: '无处不在的' },
-    ],
+    items,
     onItemSelect,
     showGradients = true,
     enableArrowNavigation = true,
@@ -143,40 +135,72 @@ const AnimatedList = ({
     }, [selectedIndex, keyboardNav]);
 
     return (
-        <div className={`animated-list-container ${className}`}>
+        <div className={cn("relative w-full h-full overflow-hidden", className)}>
             <div
                 ref={listRef}
-                className={`animated-list-scroll ${!displayScrollbar ? 'no-scrollbar' : ''}`}
+                className={cn(
+                    "w-full h-full overflow-y-auto p-4 scroll-smooth",
+                    !displayScrollbar && "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+                )}
                 onScroll={handleScroll}
             >
-                {items.map((item, index) => (
-                    <AnimatedItem
-                        key={index}
-                        delay={0.05}
-                        index={index}
-                        onMouseEnter={() => handleItemMouseEnter(index)}
-                        onClick={() => handleItemClick(item, index)}
-                    >
-                        <div className={`animated-list-item ${selectedIndex === index ? 'selected' : ''} ${itemClassName}`}>
-                            <div className="item-checkbox">
-                                {selectedIndex === index && (
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M20 6 9 17l-5-5" />
-                                    </svg>
-                                )}
+                {items.map((item, index) => {
+                    const isSelected = selectedIndex === index;
+                    return (
+                        <AnimatedItem
+                            key={index}
+                            delay={0.05}
+                            index={index}
+                            onMouseEnter={() => handleItemMouseEnter(index)}
+                            onClick={() => handleItemClick(item, index)}
+                        >
+                            <div className={cn(
+                                "flex items-center gap-4 px-4 py-3.5 rounded-xl bg-transparent transition-all duration-200",
+                                "hover:bg-white/60",
+                                isSelected ? "bg-white/80 shadow-[0_2px_8px_rgba(0,0,0,0.06)]" : "",
+                                itemClassName
+                            )}>
+                                <div className={cn(
+                                    "w-6 h-6 rounded-md border-2 border-[#E5E5E5] flex items-center justify-center shrink-0 transition-all duration-200",
+                                    isSelected ? "bg-braun-accent border-braun-accent text-white" : ""
+                                )}>
+                                    {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className={cn(
+                                        "text-base font-semibold m-0 leading-snug truncate transition-colors duration-200",
+                                        isSelected ? "text-[#1A1A1A]" : "text-gray-400"
+                                    )}>
+                                        {item.word}
+                                    </p>
+                                    <p className={cn(
+                                        "text-[13px] m-0 mt-0.5 leading-tight truncate transition-colors duration-200",
+                                        isSelected ? "text-gray-500" : "text-gray-400"
+                                    )}>
+                                        {item.translation}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="item-content">
-                                <p className="item-word">{item.word}</p>
-                                <p className="item-translation">{item.translation}</p>
-                            </div>
-                        </div>
-                    </AnimatedItem>
-                ))}
+                        </AnimatedItem>
+                    );
+                })}
             </div>
             {showGradients && (
                 <>
-                    <div className="animated-list-gradient-top" style={{ opacity: topGradientOpacity }} />
-                    <div className="animated-list-gradient-bottom" style={{ opacity: bottomGradientOpacity }} />
+                    <div
+                        className="absolute top-0 left-0 right-0 h-16 pointer-events-none z-10 transition-opacity duration-200"
+                        style={{
+                            background: 'linear-gradient(to bottom, #F9F9F7 0%, transparent 100%)',
+                            opacity: topGradientOpacity
+                        }}
+                    />
+                    <div
+                        className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10 transition-opacity duration-200"
+                        style={{
+                            background: 'linear-gradient(to top, #F9F9F7 0%, transparent 100%)',
+                            opacity: bottomGradientOpacity
+                        }}
+                    />
                 </>
             )}
         </div>

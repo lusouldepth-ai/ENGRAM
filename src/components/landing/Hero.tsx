@@ -26,6 +26,18 @@ const HeroCardGenerator = dynamic(
    }
 );
 
+// Demo data for the AnimatedList
+const DEMO_ITEMS = [
+   { word: 'Ephemeral', translation: '短暂的，转瞬即逝的' },
+   { word: 'Serendipity', translation: '机缘凑巧' },
+   { word: 'Eloquent', translation: '雄辩的' },
+   { word: 'Luminous', translation: '发光的，明亮的' },
+   { word: 'Ethereal', translation: '轻飘的，空灵的' },
+   { word: 'Resilient', translation: '有弹性的，坚韧的' },
+   { word: 'Mellifluous', translation: '甜美流畅的' },
+   { word: 'Ubiquitous', translation: '无处不在的' },
+];
+
 export function Hero() {
    const { t } = useLanguage();
    const router = useRouter();
@@ -149,6 +161,7 @@ export function Hero() {
                         {/* AnimatedList - Vocabulary Demo */}
                         <div className="flex-1 relative flex items-center justify-center overflow-hidden">
                            <AnimatedList
+                              items={DEMO_ITEMS}
                               showGradients={true}
                               enableArrowNavigation={false}
                               displayScrollbar={false}
