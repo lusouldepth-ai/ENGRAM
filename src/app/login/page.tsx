@@ -21,6 +21,10 @@ function LoginPageContent() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent double submission
+    if (loading) return;
+
     setLoading(true);
     setError(null);
 
@@ -36,16 +40,15 @@ function LoginPageContent() {
         throw authError;
       }
 
-      // Login successful - redirect to dashboard
-      // Middleware will handle onboarding redirect if needed
-      router.push('/dashboard');
-      router.refresh();
+      // Login successful - use window.location for full page refresh
+      // This ensures cookies are properly set before navigation
+      window.location.href = '/dashboard';
     } catch (err: any) {
       console.error("Login failed:", err);
       setError(err.message || "Failed to sign in");
-    } finally {
       setLoading(false);
     }
+    // Don't setLoading(false) on success - keep button disabled during redirect
   };
 
   return (
