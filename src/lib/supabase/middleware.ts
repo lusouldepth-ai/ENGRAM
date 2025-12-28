@@ -49,7 +49,7 @@ export async function updateSession(request: NextRequest) {
   )
 
   // Public paths - skip all checks for better performance
-  const publicPaths = ['/', '/login', '/pricing', '/method', '/auth/callback']
+  const publicPaths = ['/', '/login', '/register', '/pricing', '/method', '/auth/callback']
   const pathname = request.nextUrl.pathname
   const isPublicPath = publicPaths.includes(pathname)
   const isStaticAsset = pathname.startsWith('/_next') || pathname.includes('.')

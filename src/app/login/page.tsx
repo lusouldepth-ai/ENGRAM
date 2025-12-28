@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Link } from 'next/link'; // Import Link
+import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,44 +27,19 @@ function LoginPageContent() {
     const supabase = createClient();
 
     try {
-      console.log("Attempting login...");
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (authError) {
-        console.error("Supabase login error:", authError);
-        throw authError; // Re-throw to catch below
+        throw authError;
       }
 
-      console.log("Login successful, user:", authData.user?.id);
-
-      if (authData.user) {
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('id', authData.user.id)
-            .single();
-
-          if (profileError) {
-            console.warn("Could not fetch profile, defaulting to onboarding:", profileError);
-            // If profile fetch fails, safe bet is dashboard or onboarding. 
-            // Let's go to dashboard as fallback if they logged in, or onboarding?
-            // Defaulting to onboarding is safer for new users, but dashboard better for existing if DB glitch.
-            // Let's stick to existing logic but handle error gracefully.
-            router.push('/dashboard');
-          } else {
-            console.log("Profile loaded, onboarding_completed:", profile?.onboarding_completed);
-            router.push(profile?.onboarding_completed ? '/dashboard' : '/onboarding');
-          }
-          router.refresh();
-        } catch (innerErr) {
-          console.error("Profile check failed:", innerErr);
-          router.push('/dashboard'); // Fallback
-        }
-      }
+      // Login successful - redirect to dashboard
+      // Middleware will handle onboarding redirect if needed
+      router.push('/dashboard');
+      router.refresh();
     } catch (err: any) {
       console.error("Login failed:", err);
       setError(err.message || "Failed to sign in");
@@ -131,16 +106,12 @@ function LoginPageContent() {
           </form>
 
           <div className="mt-6 text-center">
-            <a
+            <Link
               href="/register"
               className="text-sm text-gray-500 hover:text-braun-accent transition-colors"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push('/register');
-              }}
             >
               Don&apos;t have an account? Sign up
-            </a>
+            </Link>
           </div>
         </div>
       </div>

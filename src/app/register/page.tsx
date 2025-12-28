@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { Link } from 'next/link'; // Import Link
+import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,16 +134,12 @@ function RegisterPageContent() {
 
                     {!message && (
                         <div className="mt-6 text-center">
-                            <a
+                            <Link
                                 href="/login"
                                 className="text-sm text-gray-500 hover:text-braun-accent transition-colors"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    router.push('/login');
-                                }}
                             >
                                 Already have an account? Sign in
-                            </a>
+                            </Link>
                         </div>
                     )}
                 </div>
