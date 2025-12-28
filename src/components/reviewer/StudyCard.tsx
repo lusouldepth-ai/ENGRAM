@@ -80,10 +80,6 @@ export function StudyCard({
   const isAllCaps = rawTarget && rawTarget === rawTarget.toUpperCase();
   const displayTarget = isAllCaps ? rawTarget : rawTarget.toLowerCase();
 
-  // Debug: Log userTier and accentPreference
-  console.log('🎴 [StudyCard] userTier:', userTier, '| isPro:', isPro);
-  console.log('🎴 [StudyCard] accentPreference:', accentPreference, '| accent:', accent);
-
 
   // Reset state on card change and fetch interval previews
   useEffect(() => {
@@ -110,15 +106,13 @@ export function StudyCard({
       try {
         const checkResult = await checkCardTranslation(card.id);
         if (checkResult.needsFix) {
-          console.log(`🔧 [StudyCard] Fixing translation for "${card.front}"...`);
           const fixResult = await fixCardTranslation(card.id);
           if (fixResult.success && fixResult.newTranslation) {
-            console.log(`✅ [StudyCard] Translation fixed: "${fixResult.oldTranslation}" -> "${fixResult.newTranslation}"`);
             setFixedTranslation(fixResult.newTranslation);
           }
         }
-      } catch (error) {
-        console.error('❌ [StudyCard] Translation fix error:', error);
+      } catch {
+        // Silent fail for translation fix
       }
     }
     checkAndFixTranslation();
@@ -150,24 +144,18 @@ export function StudyCard({
   };
 
   const handlePlay = () => {
-    console.log('🔊 [StudyCard] handlePlay called');
     stopAudio();
     speakViaWebAPI(rawTarget);
   };
 
   const handleExamplePlay = (text: string) => {
-    console.log('🔊 [StudyCard] handleExamplePlay called for:', text);
     stopAudio();
     if (!text) return;
     speakViaWebAPI(text);
   };
 
   const speakViaWebAPI = async (text: string, speed: number = 1.0, setState: (val: boolean) => void = setIsSpeaking) => {
-    console.log('🔊 [StudyCard] speakViaWebAPI called for:', text);
-    if (typeof window === 'undefined') {
-      console.warn('Not in browser environment');
-      return;
-    }
+    if (typeof window === 'undefined') return;
 
     // Ensure all previous audio is stopped
     stopAudio();
@@ -199,51 +187,39 @@ export function StudyCard({
   };
 
   const handleRecordToggle = async () => {
-    console.log('🎤 [Recording] handleRecordToggle called');
-    console.log('🎤 [Recording] isPro:', isPro, '| userTier:', userTier);
-
     if (!isPro) {
-      console.log('🎤 [Recording] User is not Pro, redirecting to pricing');
       router.push('/pricing');
       return;
     }
 
     if (isRecording) {
-      console.log('🎤 [Recording] Stopping recording...');
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
     } else {
-      console.log('🎤 [Recording] Starting recording...');
       try {
-        console.log('🎤 [Recording] Requesting microphone permission...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log('🎤 [Recording] Microphone permission granted!');
 
         const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
         recordedChunksRef.current = [];
 
         mediaRecorder.ondataavailable = (e) => {
-          console.log('🎤 [Recording] Data available, size:', e.data.size);
           if (e.data.size > 0) {
             recordedChunksRef.current.push(e.data);
           }
         };
 
         mediaRecorder.onstop = () => {
-          console.log('🎤 [Recording] Recording stopped, creating blob...');
           const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
           const url = URL.createObjectURL(blob);
-          console.log('🎤 [Recording] Recording saved:', url);
           setRecordedUrl(url);
           stream.getTracks().forEach(track => track.stop());
         };
 
         mediaRecorder.start();
-        console.log('🎤 [Recording] Recording started!');
         setIsRecording(true);
       } catch (error) {
-        console.error('🎤 [Recording] Error accessing microphone:', error);
+        console.error('Error accessing microphone:', error);
         alert('无法访问麦克风，请检查浏览器权限设置');
       }
     }

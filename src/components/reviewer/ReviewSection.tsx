@@ -32,10 +32,6 @@ export default function ReviewSection({ profile, initialCards, initialTodayCount
   const [sessionCompletedCount, setSessionCompletedCount] = useState(0);
   const [todayReviewedCount, setTodayReviewedCount] = useState(hasInitialData ? initialTodayCount : 0);
 
-  // Debug: Log received profile
-  console.log('📋 [ReviewSection] Received profile:', profile);
-  console.log('📋 [ReviewSection] tier:', profile?.tier, '| accent_preference:', profile?.accent_preference);
-  console.log('📋 [ReviewSection] Has initial data:', hasInitialData, '| initialCards count:', initialCards?.length);
 
   // Only fetch on client if no initial data was provided (fallback for /review route)
   useEffect(() => {
