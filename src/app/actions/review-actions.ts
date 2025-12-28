@@ -39,7 +39,6 @@ export async function getDueCards() {
     if (!word) return true; // 保留无法判断的卡片
 
     if (seenWords.has(word)) {
-      console.log(`🔄 [Dedup] Skipping duplicate word: "${card.front}"`);
       return false;
     }
     seenWords.add(word);
@@ -161,7 +160,6 @@ async function checkAndAddToMistakeBook(
     .single();
 
   if (alreadyInMistakeBook) {
-    console.log(`📝 [错词本] "${card.front}" 已在错词本中`);
     return false;
   }
 
@@ -193,7 +191,6 @@ async function checkAndAddToMistakeBook(
     return false;
   }
 
-  console.log(`📕 [错词本] "${card.front}" 连续 ${MISTAKE_THRESHOLD} 次遗忘，已自动添加到错词本`);
   return true;
 }
 
@@ -224,16 +221,8 @@ export async function reviewCard(cardId: string, grade: 'forgot' | 'hard' | 'goo
   const rating: AppRating = grade;
   const newState = processReview(currentCard, rating);
 
-  console.log(`📊 [FSRS] Card ${cardId}: ${grade} → 下次复习: ${newState.scheduledDays} 天后`);
-  console.log(`   stability: ${currentCard.stability} → ${newState.stability.toFixed(2)}`);
-  console.log(`   difficulty: ${currentCard.difficulty} → ${newState.difficulty.toFixed(2)}`);
-
   // 3. 判断是否应该标记为已掌握
   const isMastered = shouldMarkAsMastered(newState.stability, newState.reps, rating);
-
-  if (isMastered) {
-    console.log(`🎉 [FSRS] Card ${cardId} 已掌握！`);
-  }
 
   // 4. 更新卡片
   const { error: updateError } = await supabase

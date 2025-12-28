@@ -11,14 +11,12 @@ const getAudioContext = async () => {
     if (!audioContext) {
         // Use default device sample rate for broader compatibility
         audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        console.log('AudioContext created with sampleRate', audioContext.sampleRate);
     }
 
     // Resume context if suspended (required by browser security policy)
     if (audioContext.state === 'suspended') {
         try {
             await audioContext.resume();
-            console.log('AudioContext resumed successfully');
         } catch (error) {
             console.warn('Failed to resume AudioContext:', error);
         }
@@ -93,19 +91,16 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
         const cacheKey = `${text.trim()}-${accent}`;
 
         if (ttsCache.has(cacheKey)) {
-            console.log('TTS: Cache hit for', cacheKey);
             const audioBuffer = ttsCache.get(cacheKey)!;
 
             const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
             source.playbackRate.value = speed;
             source.connect(ctx.destination);
-            console.log('TTS: starting cached audio, duration', audioBuffer.duration, 's');
             source.start();
 
             return new Promise((resolve) => {
                 source.onended = () => {
-                    console.log('TTS: cached audio ended');
                     resolve();
                 };
             });
@@ -142,7 +137,6 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
         if (ctx.state !== 'running') {
             try {
                 await ctx.resume();
-                console.log('AudioContext resumed before playback');
             } catch (e) {
                 console.warn('AudioContext resume failed before playback:', e);
             }
@@ -157,15 +151,11 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
         source.buffer = audioBuffer;
         source.playbackRate.value = speed;
         source.connect(gainNode);
-        console.log('TTS: starting new audio, duration', audioBuffer.duration, 's');
         source.start();
-
-        console.log('TTS: Playing audio successfully');
 
         // Return a promise that resolves when audio ends
         return new Promise((resolve) => {
             source.onended = () => {
-                console.log('TTS: Audio playback ended');
                 resolve();
             };
         });
@@ -178,7 +168,6 @@ export const playHighQualitySpeech = async (text: string, accent: Accent = 'US',
 
 const fallbackToBrowserTTS = (text: string, speed: number) => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-        console.log("🔊 [TTS] Falling back to browser speech synthesis");
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = speed;
         // Try to select an English voice
