@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
+import { useLanguage } from "@/lib/contexts/LanguageContext"
 
 interface SettingsFormProps {
   profile: any
@@ -22,6 +23,7 @@ interface SettingsFormProps {
 export function SettingsForm({ profile }: SettingsFormProps) {
   const supabase = createClient()
   const router = useRouter()
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -54,7 +56,7 @@ export function SettingsForm({ profile }: SettingsFormProps) {
       }
 
       router.refresh()
-      // Redirect to dashboard (英语角) after successful save
+      // Redirect to dashboard after successful save
       router.push('/dashboard')
     } catch (error: any) {
       console.error("Error updating profile:", error)
@@ -67,16 +69,16 @@ export function SettingsForm({ profile }: SettingsFormProps) {
   return (
     <div className="bg-white shadow-sm border border-stone-200 rounded-xl p-8 max-w-xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#1A1A1A]">Profile Settings</h1>
-        <p className="text-gray-500 mt-2">Manage your personal preferences and learning goals.</p>
+        <h1 className="text-2xl font-bold text-[#1A1A1A]">{t('settings.title')}</h1>
+        <p className="text-gray-500 mt-2">{t('settings.subtitle')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="display-name">Display Name</Label>
+          <Label htmlFor="display-name">{t('settings.displayName')}</Label>
           <Input
             id="display-name"
-            placeholder="Your name"
+            placeholder={t('settings.displayNamePlaceholder')}
             value={formData.display_name}
             onChange={(e) => handleChange("display_name", e.target.value)}
             className="bg-white border-stone-200"
@@ -84,62 +86,62 @@ export function SettingsForm({ profile }: SettingsFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="learning-goal">Learning Goal</Label>
+          <Label htmlFor="learning-goal">{t('settings.learningGoal')}</Label>
           <Select
             value={formData.learning_goal}
             onValueChange={(value) => handleChange("learning_goal", value)}
           >
             <SelectTrigger id="learning-goal" className="bg-white border-stone-200">
-              <SelectValue placeholder="Select a goal" />
+              <SelectValue placeholder={t('settings.learningGoalPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="General">General Fluency</SelectItem>
-              <SelectItem value="Business">Business English</SelectItem>
-              <SelectItem value="IELTS">IELTS Preparation</SelectItem>
-              <SelectItem value="TOEFL">TOEFL Preparation</SelectItem>
-              <SelectItem value="Academic">Academic English</SelectItem>
+              <SelectItem value="General">{t('settings.goal.general')}</SelectItem>
+              <SelectItem value="Business">{t('settings.goal.business')}</SelectItem>
+              <SelectItem value="IELTS">{t('settings.goal.ielts')}</SelectItem>
+              <SelectItem value="TOEFL">{t('settings.goal.toefl')}</SelectItem>
+              <SelectItem value="Academic">{t('settings.goal.academic')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="english-level">English Level</Label>
+          <Label htmlFor="english-level">{t('settings.englishLevel')}</Label>
           <Select
             value={formData.english_level}
             onValueChange={(value) => handleChange("english_level", value)}
           >
             <SelectTrigger id="english-level" className="bg-white border-stone-200">
-              <SelectValue placeholder="Select your level" />
+              <SelectValue placeholder={t('settings.levelPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Beginner">Beginner (A1-A2)</SelectItem>
-              <SelectItem value="Intermediate">Intermediate (B1-B2)</SelectItem>
-              <SelectItem value="Advanced">Advanced (C1-C2)</SelectItem>
+              <SelectItem value="Beginner">{t('settings.level.beginner')}</SelectItem>
+              <SelectItem value="Intermediate">{t('settings.level.intermediate')}</SelectItem>
+              <SelectItem value="Advanced">{t('settings.level.advanced')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="accent-preference">Accent Preference</Label>
+          <Label htmlFor="accent-preference">{t('settings.accent')}</Label>
           <Select
             value={formData.accent_preference}
             onValueChange={(value) => handleChange("accent_preference", value)}
           >
             <SelectTrigger id="accent-preference" className="bg-white border-stone-200">
-              <SelectValue placeholder="Select accent" />
+              <SelectValue placeholder={t('settings.accentPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="US">American (US)</SelectItem>
-              <SelectItem value="UK">British (UK)</SelectItem>
+              <SelectItem value="US">{t('settings.accent.us')}</SelectItem>
+              <SelectItem value="UK">{t('settings.accent.uk')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <Label htmlFor="daily-words">每日新词目标</Label>
+            <Label htmlFor="daily-words">{t('settings.dailyGoal')}</Label>
             <span className="text-lg font-semibold text-braun-accent">
-              {formData.daily_new_words_goal} 个/天
+              {formData.daily_new_words_goal} {t('settings.dailyGoalUnit')}
             </span>
           </div>
           <input
@@ -153,11 +155,11 @@ export function SettingsForm({ profile }: SettingsFormProps) {
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-braun-accent"
           />
           <div className="flex justify-between text-xs text-gray-400">
-            <span>5个</span>
-            <span>轻松</span>
-            <span>适中</span>
-            <span>挑战</span>
-            <span>50个</span>
+            <span>5</span>
+            <span>{t('settings.dailyGoal.easy')}</span>
+            <span>{t('settings.dailyGoal.medium')}</span>
+            <span>{t('settings.dailyGoal.hard')}</span>
+            <span>50</span>
           </div>
         </div>
 
@@ -167,7 +169,7 @@ export function SettingsForm({ profile }: SettingsFormProps) {
             className="w-full bg-[#1A1A1A] text-white hover:bg-black rounded-md h-10 font-medium"
             disabled={loading}
           >
-            {loading ? "Saving..." : "Save Changes"}
+            {loading ? t('settings.saving') : t('settings.save')}
           </Button>
         </div>
       </form>
