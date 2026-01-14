@@ -27,6 +27,9 @@ export interface Database {
           ui_language: string | null
           plan_status: Json | null
           onboarding_completed: boolean
+          daily_new_words_goal: number
+          last_new_words_date: string | null
+          selected_vocab_book_id: string | null
         }
         Insert: {
           id: string
@@ -45,6 +48,9 @@ export interface Database {
           ui_language?: string | null
           plan_status?: Json | null
           onboarding_completed?: boolean
+          daily_new_words_goal?: number
+          last_new_words_date?: string | null
+          selected_vocab_book_id?: string | null
         }
         Update: {
           id?: string
@@ -63,6 +69,9 @@ export interface Database {
           ui_language?: string | null
           plan_status?: Json | null
           onboarding_completed?: boolean
+          daily_new_words_goal?: number
+          last_new_words_date?: string | null
+          selected_vocab_book_id?: string | null
         }
         Relationships: [
           {

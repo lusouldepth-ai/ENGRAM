@@ -283,17 +283,17 @@ export async function importVocabBook(
         // 注意：在 Vercel 生产环境中，这些文件不会被部署
         // 导入功能应该在本地环境或通过其他方式（如 Supabase Storage）完成
         const filePath = path.join(process.cwd(), 'data', jsonFilePath);
-        
+
         // 检查文件是否存在（Vercel 环境中可能不存在）
         try {
             await fs.access(filePath);
         } catch {
-            return { 
-                success: false, 
-                error: 'JSON 文件未找到。在生产环境中，请使用 Supabase Storage 或其他方式存储词库文件。' 
+            return {
+                success: false,
+                error: 'JSON 文件未找到。在生产环境中，请使用 Supabase Storage 或其他方式存储词库文件。'
             };
         }
-        
+
         const fileContent = await fs.readFile(filePath, 'utf-8');
         const words = JSON.parse(fileContent);
 
@@ -382,12 +382,30 @@ export async function importVocabBook(
 // ============================================
 
 /**
- * 更新每日新词目标 (not implemented yet - profile column doesn't exist)
+ * 更新每日新词目标
  */
 export async function updateDailyNewWordsGoal(goal: number) {
-    // Validate goal
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: 'Unauthorized' };
+    }
+
+    // Validate goal (5-50)
     const validGoal = Math.max(5, Math.min(50, goal));
-    // TODO: Add daily_new_words_goal column to profiles table
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ daily_new_words_goal: validGoal })
+        .eq('id', user.id);
+
+    if (error) {
+        console.error('Error updating daily goal:', error);
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath('/settings');
     return { success: true, goal: validGoal };
 }
 
@@ -402,8 +420,14 @@ export async function getDailyLearningStats() {
         return { success: false, error: 'Unauthorized' };
     }
 
-    // Use default daily goal (TODO: add daily_new_words_goal to profiles table)
-    const dailyGoal = 10;
+    // 获取用户配置的每日目标
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('daily_new_words_goal')
+        .eq('id', user.id)
+        .single();
+
+    const dailyGoal = profile?.daily_new_words_goal || 10;
 
     // 今日日期范围
     const todayStart = new Date();

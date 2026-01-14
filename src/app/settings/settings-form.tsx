@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { updateProfile } from "@/app/actions/onboarding-actions"
+import { updateSelectedVocabBook } from "@/app/actions/daily-vocab-injection"
+import { getVocabBooks } from "@/app/actions/vocab-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +18,14 @@ import {
 import { useRouter } from "next/navigation"
 import { useLanguage } from "@/lib/contexts/LanguageContext"
 
+interface VocabBook {
+  id: string
+  book_id: string
+  title: string
+  word_count: number
+  cefr_level: string | null
+}
+
 interface SettingsFormProps {
   profile: any
 }
@@ -25,6 +35,10 @@ export function SettingsForm({ profile }: SettingsFormProps) {
   const router = useRouter()
   const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
+  const [vocabBooks, setVocabBooks] = useState<VocabBook[]>([])
+  const [selectedBookId, setSelectedBookId] = useState<string>(
+    profile?.selected_vocab_book_id || ""
+  )
 
   const [formData, setFormData] = useState({
     display_name: profile?.display_name || "",
@@ -34,8 +48,25 @@ export function SettingsForm({ profile }: SettingsFormProps) {
     daily_new_words_goal: profile?.daily_new_words_goal || 10,
   })
 
-  const handleChange = (field: string, value: string) => {
+  // Fetch vocab books on mount
+  useEffect(() => {
+    async function fetchBooks() {
+      const result = await getVocabBooks()
+      if (result.success && result.books) {
+        setVocabBooks(result.books)
+      }
+    }
+    fetchBooks()
+  }, [])
+
+  const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleBookChange = async (bookId: string) => {
+    setSelectedBookId(bookId)
+    // Save immediately
+    await updateSelectedVocabBook(bookId)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,6 +114,29 @@ export function SettingsForm({ profile }: SettingsFormProps) {
             onChange={(e) => handleChange("display_name", e.target.value)}
             className="bg-white border-stone-200"
           />
+        </div>
+
+        {/* Vocab Book Selector */}
+        <div className="space-y-2">
+          <Label htmlFor="vocab-book">{t('settings.vocabBook')}</Label>
+          <Select
+            value={selectedBookId}
+            onValueChange={handleBookChange}
+          >
+            <SelectTrigger id="vocab-book" className="bg-white border-stone-200">
+              <SelectValue placeholder={t('settings.vocabBookPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {vocabBooks.map((book) => (
+                <SelectItem key={book.id} value={book.id}>
+                  {book.title} ({book.word_count} {t('settings.words')})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-400">
+            {t('settings.vocabBookHint')}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -151,7 +205,7 @@ export function SettingsForm({ profile }: SettingsFormProps) {
             max="50"
             step="5"
             value={formData.daily_new_words_goal}
-            onChange={(e) => handleChange("daily_new_words_goal", parseInt(e.target.value) as any)}
+            onChange={(e) => handleChange("daily_new_words_goal", parseInt(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-braun-accent"
           />
           <div className="flex justify-between text-xs text-gray-400">
@@ -161,6 +215,9 @@ export function SettingsForm({ profile }: SettingsFormProps) {
             <span>{t('settings.dailyGoal.hard')}</span>
             <span>50</span>
           </div>
+          <p className="text-xs text-gray-400">
+            {t('settings.reviewLimit')}: {formData.daily_new_words_goal * 10} {t('settings.words')}
+          </p>
         </div>
 
         <div className="pt-4">
@@ -176,4 +233,3 @@ export function SettingsForm({ profile }: SettingsFormProps) {
     </div>
   )
 }
-

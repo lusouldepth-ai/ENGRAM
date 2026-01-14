@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Database } from "@/lib/supabase/types";
 import ReviewSection from "@/components/reviewer/ReviewSection";
+import { checkAndInjectDailyWords } from "@/app/actions/daily-vocab-injection";
 
 type Card = Database["public"]["Tables"]["cards"]["Row"];
 
@@ -56,6 +57,10 @@ interface StreamedReviewSectionProps {
 export async function StreamedReviewSection({ userId, profile }: StreamedReviewSectionProps) {
     const supabase = createClient();
 
+    // Check and inject daily words first (only triggers once per day)
+    // This runs on page load and respects review limits
+    await checkAndInjectDailyWords();
+
     // Parallel data fetching
     const [dueCards, todayReviewedCount] = await Promise.all([
         getServerDueCards(userId, supabase),
@@ -70,3 +75,4 @@ export async function StreamedReviewSection({ userId, profile }: StreamedReviewS
         />
     );
 }
+
